@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>real-agent — Agentic Kanban</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+
+  <body>
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">◆</span>
+        <span class="brand-name">real-agent</span>
+      </div>
+
+      <div class="ws-area">
+        <label class="ws-label">Workspace</label>
+        <select id="ws-select" class="ws-select" title="Select active workspace"></select>
+        <button id="ws-add" class="btn btn-ghost" title="Add project folder">+ Folder</button>
+        <button id="ws-remove" class="btn btn-ghost btn-danger-ghost" title="Remove active workspace">Remove</button>
+      </div>
+
+      <div class="topbar-right">
+        <span id="ws-path" class="ws-path"></span>
+        <button id="task-new" class="btn btn-primary">+ Task</button>
+      </div>
+    </header>
+
+    <!-- Board -->
+    <main id="board" class="board"></main>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="empty-state hidden">
+      <h2>No workspace yet</h2>
+      <p>Add a project folder for the agent to work on.</p>
+      <button id="empty-add" class="btn btn-primary">+ Choose Folder</button>
+    </div>
+
+    <!-- Task editor modal -->
+    <div id="modal-overlay" class="overlay hidden">
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-head">
+          <h3 id="modal-title">New Task</h3>
+          <button id="modal-close" class="icon-btn" aria-label="Close">✕</button>
+        </div>
+        <div class="modal-body">
+          <label class="field">
+            <span>Title</span>
+            <input id="f-title" type="text" placeholder="e.g. Add unit tests for the parser" />
+          </label>
+          <label class="field">
+            <span>Instruction / Prompt for the agent</span>
+            <textarea id="f-prompt" rows="6" placeholder="Describe the task the agent should perform in this folder..."></textarea>
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span>Provider</span>
+              <select id="f-provider">
+                <option value="claude">Claude Code</option>
+                <option value="codex">Codex</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Model</span>
+              <select id="f-model"></select>
+            </label>
+          </div>
+          <label class="field hidden" id="f-model-custom-wrap">
+            <span>Custom model</span>
+            <input id="f-model-custom" type="text" placeholder="exact model name" />
+          </label>
+          <label class="field">
+            <span>Autonomy level</span>
+            <select id="f-auto">
+              <option value="full_bypass">Full bypass — most autonomous (skips all approvals)</option>
+              <option value="sandboxed">Sandboxed — auto-edit limited to the workspace folder</option>
+            </select>
+          </label>
+        </div>
+        <div class="modal-foot">
+          <button id="f-delete" class="btn btn-danger hidden">Delete</button>
+          <span class="spacer"></span>
+          <button id="f-cancel" class="btn btn-ghost">Cancel</button>
+          <button id="f-save" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail / log drawer -->
+    <div id="drawer-overlay" class="drawer-overlay hidden">
+      <aside id="drawer" class="drawer">
+        <div class="drawer-head">
+          <div>
+            <h3 id="d-title">Task</h3>
+            <div id="d-meta" class="d-meta"></div>
+          </div>
+          <button id="d-close" class="icon-btn" aria-label="Close">✕</button>
+        </div>
+
+        <div class="drawer-actions">
+          <button id="d-run" class="btn btn-primary">▶ Run</button>
+          <button id="d-stop" class="btn btn-danger">■ Stop</button>
+          <button id="d-done" class="btn btn-success hidden">✓ Done</button>
+          <button id="d-diff" class="btn btn-ghost">Diff</button>
+          <button id="d-edit" class="btn btn-ghost">Edit</button>
+          <button id="d-delete" class="btn btn-ghost btn-danger-ghost">Delete</button>
+        </div>
+
+        <div class="drawer-prompt">
+          <div class="section-label">Prompt</div>
+          <pre id="d-prompt" class="prompt-box"></pre>
+        </div>
+
+        <div class="drawer-tabs">
+          <button class="tab active" data-tab="log">Log</button>
+          <button class="tab" data-tab="diff">Diff</button>
+        </div>
+        <pre id="d-log" class="log-box"></pre>
+        <pre id="d-diffbox" class="log-box hidden"></pre>
+      </aside>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast hidden"></div>
+  </body>
+</html>

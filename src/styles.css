@@ -602,3 +602,137 @@ textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: #38465a;
 }
+
+/* ============================================================
+   UI POLISH LAYER — kelembutan, kedalaman, & motion.
+   Aditif: muncul paling akhir sehingga menang pada specificity
+   yang sama tanpa mengubah rule lain / merusak hook class JS.
+   Tujuan: menghilangkan kesan "kaku".
+   ============================================================ */
+
+/* Atmosfer halaman: dua glow lembut agar latar tidak terasa datar. */
+body {
+  background:
+    radial-gradient(1100px 560px at 82% -12%, rgba(91, 140, 255, 0.07), transparent 60%),
+    radial-gradient(900px 520px at -12% 112%, rgba(163, 113, 247, 0.06), transparent 60%),
+    var(--bg);
+}
+
+/* Transisi global konsisten dengan sedikit easing pegas. */
+.btn,
+.icon-btn,
+.card,
+.card-done,
+.tab,
+.badge,
+select,
+input,
+textarea,
+.column {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.24s ease,
+    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Topbar: sedikit kedalaman di bawahnya. */
+.topbar {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+/* Tombol: terangkat halus saat hover, menekan saat aktif. */
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.13), transparent);
+  box-shadow: 0 2px 10px rgba(91, 140, 255, 0.28);
+}
+.btn-primary:hover {
+  background-color: #6f9bff;
+  box-shadow: 0 6px 18px rgba(91, 140, 255, 0.4);
+}
+.btn:focus-visible,
+.icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.35);
+}
+
+/* Input: focus ring lembut selain border accent. */
+select:focus,
+input:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.16);
+}
+
+/* Kartu: bayangan dasar + sheen halus + terangkat saat hover. */
+.card {
+  border-radius: 11px;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.022), transparent 42%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+.card:hover {
+  border-color: #3a465a;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+}
+.card:active {
+  transform: translateY(0) scale(0.997);
+}
+.card.dragging {
+  opacity: 0.9;
+  transform: rotate(1.5deg) scale(1.02);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  cursor: grabbing;
+}
+
+/* Kolom non-Doing: terangkat halus saat hover (Doing punya glow sendiri). */
+.column:not(.col-doing):hover {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+/* Overlay: redup + blur agar fokus ke modal/drawer. */
+.overlay,
+.drawer-overlay {
+  background: rgba(8, 10, 14, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: overlay-in 0.18s ease;
+}
+.modal {
+  animation: modal-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.drawer {
+  animation: drawer-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.toast {
+  animation: toast-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 14px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Hormati preferensi gerak minimal (aksesibilitas). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

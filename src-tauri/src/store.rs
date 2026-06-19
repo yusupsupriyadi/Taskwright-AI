@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::models::Store;
 
-/// Direktori data aplikasi (per-identifier, mis. %APPDATA%\com.yusup.real-agent).
+/// Direktori data aplikasi (per-identifier, mis. %APPDATA%\com.taskwright.desktop).
 pub fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_data_dir()

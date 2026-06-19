@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    real_agent_lib::run()
+    taskwright_lib::run()
 }

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "real-agent",
+  "productName": "Taskwright AI",
   "version": "0.1.0",
-  "identifier": "com.yusup.real-agent",
+  "identifier": "com.taskwright.desktop",
   "build": {
     "frontendDist": "../src"
   },
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "real-agent",
+        "title": "Taskwright AI",
         "width": 800,
         "height": 600,
         "dragDropEnabled": false

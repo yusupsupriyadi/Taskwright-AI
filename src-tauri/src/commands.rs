@@ -246,6 +246,16 @@ pub fn set_max_concurrent(app: AppHandle, value: usize) -> Result<Settings, Stri
     Ok(settings)
 }
 
+/// Aktif/nonaktifkan notifikasi OS saat sebuah run AI selesai.
+#[tauri::command]
+pub fn set_notify_on_finish(app: AppHandle, value: bool) -> Result<Settings, String> {
+    let state = app.state::<AppState>();
+    let mut s = state.store.lock().map_err(|_| "state locked")?;
+    s.settings.notify_on_finish = value;
+    store::save(&app, &s)?;
+    Ok(s.settings.clone())
+}
+
 #[tauri::command]
 pub fn stop_task(app: AppHandle, task_id: String) -> Result<(), String> {
     runner::stop_task(&app, &task_id)

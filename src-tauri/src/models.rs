@@ -68,6 +68,10 @@ fn default_max_concurrent() -> usize {
     2
 }
 
+fn default_notify_on_finish() -> bool {
+    true
+}
+
 /// Preferensi aplikasi yang dipersist ke disk.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -75,12 +79,16 @@ pub struct Settings {
     /// workspace). Task di kolom Todo mengantre sampai ada slot kosong.
     #[serde(default = "default_max_concurrent")]
     pub max_concurrent: usize,
+    /// Tampilkan notifikasi OS saat sebuah run AI selesai (sukses/gagal).
+    #[serde(default = "default_notify_on_finish")]
+    pub notify_on_finish: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             max_concurrent: default_max_concurrent(),
+            notify_on_finish: default_notify_on_finish(),
         }
     }
 }

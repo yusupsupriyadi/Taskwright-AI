@@ -28,6 +28,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState {
             store: Mutex::new(Store::default()),
         })
@@ -50,6 +51,16 @@ pub fn run() {
             if let Ok(mut s) = app.state::<AppState>().store.lock() {
                 *s = loaded;
             }
+
+            // Minta izin notifikasi sekali di awal (best-effort) agar notifikasi
+            // saat task selesai bisa tampil tanpa diblokir OS.
+            use tauri::plugin::PermissionState;
+            use tauri_plugin_notification::NotificationExt;
+            if let Ok(state) = app.notification().permission_state() {
+                if state != PermissionState::Granted {
+                    let _ = app.notification().request_permission();
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -62,6 +73,7 @@ pub fn run() {
             commands::delete_task,
             commands::set_task_status,
             commands::set_max_concurrent,
+            commands::set_notify_on_finish,
             commands::run_task,
             commands::stop_task,
             commands::get_task_log,

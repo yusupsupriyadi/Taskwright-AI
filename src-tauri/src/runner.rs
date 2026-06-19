@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_notification::NotificationExt;
 
 use crate::models::{AutoLevel, Provider, Status, Task, Workspace};
 use crate::store;
@@ -197,6 +198,7 @@ pub fn start_task(app: &AppHandle, task_id: &str) -> Result<(), String> {
     // Waiter thread.
     let app_w = app.clone();
     let id_w = task_id.to_string();
+    let title_w = task.title.clone();
     let stop_w = stop;
     std::thread::spawn(move || {
         let exit = child.wait();
@@ -223,6 +225,11 @@ pub fn start_task(app: &AppHandle, task_id: &str) -> Result<(), String> {
                 run.ok = Some(ok);
             }
         });
+
+        // Notifikasi OS saat run selesai natural (bukan di-stop manual oleh user).
+        if !stopped {
+            notify_finished(&app_w, &title_w, ok, code);
+        }
 
         // Slot baru saja kosong → angkat task antrian berikutnya bila ada.
         schedule(&app_w);
@@ -293,6 +300,49 @@ pub fn schedule(app: &AppHandle) {
         }
         // start_task sukses → `used` bertambah pada iterasi berikutnya.
     }
+}
+
+/// Kirim notifikasi OS saat sebuah run AI selesai. Menghormati setting
+/// `notify_on_finish` (dibaca terkini); best-effort — kegagalan tampil diabaikan.
+fn notify_finished(app: &AppHandle, title: &str, ok: bool, code: Option<i32>) {
+    let enabled = {
+        let state = app.state::<AppState>();
+        let s = match state.store.lock() {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        s.settings.notify_on_finish
+    };
+    if !enabled {
+        return;
+    }
+
+    let label = if title.trim().is_empty() {
+        "(untitled)"
+    } else {
+        title.trim()
+    };
+    let (heading, body) = if ok {
+        (
+            "Task finished".to_string(),
+            format!("{label} — completed successfully"),
+        )
+    } else {
+        let c = code
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "?".to_string());
+        (
+            "Task failed".to_string(),
+            format!("{label} — exited with code {c}"),
+        )
+    };
+
+    let _ = app
+        .notification()
+        .builder()
+        .title(heading)
+        .body(body)
+        .show();
 }
 
 /// Hentikan proses task (kill seluruh process tree).

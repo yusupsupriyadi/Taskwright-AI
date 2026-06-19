@@ -18,7 +18,7 @@ const MODELS = {
 const CUSTOM = "__custom__";
 
 // ---------- State ----------
-let store = { workspaces: [], tasks: [], settings: { max_concurrent: 2 } };
+let store = { workspaces: [], tasks: [], settings: { max_concurrent: 2, notify_on_finish: true } };
 let activeWs = null; // id workspace aktif
 let editingId = null; // id task yang sedang diedit (null = baru)
 let drawerTaskId = null; // task yang terbuka di drawer
@@ -108,12 +108,14 @@ function queuePosition(taskId) {
 // ---------- Pemuatan state ----------
 async function refreshState() {
   store = await invoke("load_state");
-  if (!store.settings) store.settings = { max_concurrent: 2 };
+  if (!store.settings) store.settings = { max_concurrent: 2, notify_on_finish: true };
   if (!store.workspaces.some((w) => w.id === activeWs)) {
     activeWs = store.workspaces[0]?.id || null;
   }
   const mc = $("#max-concurrent");
   if (mc) mc.value = maxConcurrent();
+  const nf = $("#notify-on-finish");
+  if (nf) nf.checked = store.settings.notify_on_finish !== false;
   render();
 }
 
@@ -490,6 +492,19 @@ function setupUi() {
       store.settings = settings;
       render();
       toast(`Max concurrent AI set to ${settings.max_concurrent}.`);
+    } catch (err) {
+      toast(String(err), true);
+      await refreshState();
+    }
+  });
+
+  // Setting notifikasi: simpan preferensi tampil notifikasi saat run selesai.
+  $("#notify-on-finish").addEventListener("change", async (e) => {
+    const value = e.target.checked;
+    try {
+      const settings = await invoke("set_notify_on_finish", { value });
+      store.settings = settings;
+      toast(value ? "Finish notifications enabled." : "Finish notifications disabled.");
     } catch (err) {
       toast(String(err), true);
       await refreshState();

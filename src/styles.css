@@ -236,6 +236,15 @@ textarea {
 .col-need_review .column-dot { background: var(--purple); }
 .col-done .column-dot { background: var(--green); }
 
+/* Tint latar tiap kolom sesuai warna status — halus (opacity rendah) agar kolom
+   mudah dibedakan tanpa mengganggu keterbacaan kartu. Deklarasi --bg-elev pertama
+   jadi fallback untuk WebView lama yang belum mendukung color-mix(). */
+.col-not_started { background: var(--bg-elev); background: color-mix(in srgb, var(--text-faint) 12%, var(--bg-elev)); }
+.col-todo { background: var(--bg-elev); background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev)); }
+.col-doing { background: var(--bg-elev); background: color-mix(in srgb, var(--amber) 12%, var(--bg-elev)); }
+.col-need_review { background: var(--bg-elev); background: color-mix(in srgb, var(--purple) 12%, var(--bg-elev)); }
+.col-done { background: var(--bg-elev); background: color-mix(in srgb, var(--green) 12%, var(--bg-elev)); }
+
 .column-count {
   margin-left: auto;
   color: var(--text-faint);

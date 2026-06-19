@@ -23,6 +23,14 @@
         <button id="ws-remove" class="btn btn-ghost btn-danger-ghost" title="Remove active workspace">Remove</button>
       </div>
 
+      <div
+        class="queue-area"
+        title="Maximum AI agents allowed to run at the same time (global). Extra Todo tasks wait in the queue."
+      >
+        <label class="ws-label" for="max-concurrent">Max running</label>
+        <input id="max-concurrent" class="num-input" type="number" min="1" max="20" inputmode="numeric" />
+      </div>
+
       <div class="topbar-right">
         <span id="ws-path" class="ws-path"></span>
         <button id="task-new" class="btn btn-primary">+ Task</button>

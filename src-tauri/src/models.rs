@@ -64,6 +64,27 @@ pub struct Task {
     pub run: Option<RunInfo>,
 }
 
+fn default_max_concurrent() -> usize {
+    2
+}
+
+/// Preferensi aplikasi yang dipersist ke disk.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Settings {
+    /// Jumlah maksimum agent AI yang boleh berjalan bersamaan (global, lintas
+    /// workspace). Task di kolom Todo mengantre sampai ada slot kosong.
+    #[serde(default = "default_max_concurrent")]
+    pub max_concurrent: usize,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            max_concurrent: default_max_concurrent(),
+        }
+    }
+}
+
 /// Bagian state yang dipersist ke disk.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Store {
@@ -71,4 +92,6 @@ pub struct Store {
     pub workspaces: Vec<Workspace>,
     #[serde(default)]
     pub tasks: Vec<Task>,
+    #[serde(default)]
+    pub settings: Settings,
 }

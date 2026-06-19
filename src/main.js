@@ -18,7 +18,7 @@ const MODELS = {
 const CUSTOM = "__custom__";
 
 // ---------- State ----------
-let store = { workspaces: [], tasks: [] };
+let store = { workspaces: [], tasks: [], settings: { max_concurrent: 2 } };
 let activeWs = null; // id workspace aktif
 let editingId = null; // id task yang sedang diedit (null = baru)
 let drawerTaskId = null; // task yang terbuka di drawer
@@ -88,12 +88,32 @@ function nextOrder(status) {
   return (orders.length ? Math.max(...orders) : 0) + 1;
 }
 
+// Batas konkurensi global: jumlah agent AI yang boleh berjalan bersamaan.
+function maxConcurrent() {
+  return Math.max(1, store.settings?.max_concurrent || 1);
+}
+
+// Posisi task dalam antrian global (FIFO by updated_at). 0 = tidak mengantre.
+function queuePosition(taskId) {
+  const queued = store.tasks
+    .filter((t) => t.status === "todo")
+    .sort(
+      (a, b) =>
+        (a.updated_at || 0) - (b.updated_at || 0) || (a.created_at || 0) - (b.created_at || 0)
+    );
+  const idx = queued.findIndex((t) => t.id === taskId);
+  return idx === -1 ? 0 : idx + 1;
+}
+
 // ---------- Pemuatan state ----------
 async function refreshState() {
   store = await invoke("load_state");
+  if (!store.settings) store.settings = { max_concurrent: 2 };
   if (!store.workspaces.some((w) => w.id === activeWs)) {
     activeWs = store.workspaces[0]?.id || null;
   }
+  const mc = $("#max-concurrent");
+  if (mc) mc.value = maxConcurrent();
   render();
 }
 
@@ -124,12 +144,15 @@ function renderBoard() {
   board.innerHTML = COLUMNS.map((col) => {
     const items = tasksIn(col.key);
     const cards = items.map(cardHTML).join("");
+    // Kolom AI Running menampilkan "terpakai / batas" agar batas konkurensi terlihat.
+    const count =
+      col.key === "doing" ? `${items.length} / ${maxConcurrent()}` : `${items.length}`;
     return `
       <section class="column col-${col.key}" data-status="${col.key}">
         <div class="column-head">
           <span class="column-dot"></span>
           <span>${col.label}</span>
-          <span class="column-count">${items.length}</span>
+          <span class="column-count">${count}</span>
         </div>
         <div class="column-body">${cards}</div>
       </section>`;
@@ -140,6 +163,11 @@ function cardHTML(t) {
   const provBadge = `<span class="badge badge-${t.provider}">${t.provider === "claude" ? "Claude" : "Codex"}</span>`;
   const modelBadge = t.model ? `<span class="badge badge-model">${esc(t.model)}</span>` : "";
   const autoBadge = `<span class="badge badge-auto">${t.auto_level === "full_bypass" ? "full" : "sandbox"}</span>`;
+  // Badge posisi antrian hanya untuk kartu di kolom Todo (menunggu giliran).
+  const queueBadge =
+    t.status === "todo"
+      ? `<span class="badge badge-queue" title="Position in the run queue">#${queuePosition(t.id)}</span>`
+      : "";
   const doneBtn =
     t.status === "need_review"
       ? `<button class="card-done" data-done="${esc(t.id)}" title="Mark as done">✓ Done</button>`
@@ -148,7 +176,7 @@ function cardHTML(t) {
     <article class="card" draggable="true" data-id="${esc(t.id)}">
       <div class="card-title">${esc(t.title) || "(untitled)"}</div>
       <div class="card-foot">
-        ${provBadge}${modelBadge}${autoBadge}
+        ${queueBadge}${provBadge}${modelBadge}${autoBadge}
         <span class="card-status">${statusIcon(t)}</span>
         ${doneBtn}
       </div>
@@ -233,7 +261,13 @@ async function moveTask(id, status) {
     });
     Object.assign(task, updated);
     render();
-    if (status === "todo") toast(`Running "${task.title}"…`);
+    if (status === "todo") {
+      toast(
+        updated.status === "doing"
+          ? `Running "${task.title}"…`
+          : `Queued "${task.title}" (#${queuePosition(task.id)}) — runs when a slot frees up.`
+      );
+    }
   } catch (err) {
     toast(String(err), true);
     await refreshState();
@@ -431,6 +465,13 @@ function setupEvents() {
     render();
     if (drawerTaskId === taskId) updateDrawerButtons(t);
   });
+
+  // Penjadwal gagal menjalankan task (mis. CLI tak ditemukan) → task kembali ke
+  // Not Started, beri tahu user lewat toast.
+  listen("task://error", (e) => {
+    const { message } = e.payload || {};
+    toast(String(message || "Failed to start task."), true);
+  });
 }
 
 // ---------- Wiring UI ----------
@@ -438,6 +479,21 @@ function setupUi() {
   $("#ws-select").addEventListener("change", (e) => {
     activeWs = e.target.value;
     render();
+  });
+
+  // Setting batas konkurensi: simpan ke backend lalu jadwalkan ulang antrian.
+  $("#max-concurrent").addEventListener("change", async (e) => {
+    const v = Math.min(20, Math.max(1, parseInt(e.target.value, 10) || 1));
+    e.target.value = v;
+    try {
+      const settings = await invoke("set_max_concurrent", { value: v });
+      store.settings = settings;
+      render();
+      toast(`Max concurrent AI set to ${settings.max_concurrent}.`);
+    } catch (err) {
+      toast(String(err), true);
+      await refreshState();
+    }
   });
 
   const addWs = async () => {
@@ -527,9 +583,18 @@ function setupUi() {
   $("#d-run").addEventListener("click", async () => {
     if (!drawerTaskId) return;
     try {
-      await invoke("run_task", { taskId: drawerTaskId });
+      const updated = await invoke("run_task", { taskId: drawerTaskId });
+      const t = store.tasks.find((x) => x.id === drawerTaskId);
+      if (t) Object.assign(t, updated);
       logs[drawerTaskId] = [];
       renderLog(drawerTaskId);
+      render();
+      if (t) updateDrawerButtons(t);
+      toast(
+        updated.status === "doing"
+          ? `Running "${updated.title}"…`
+          : `Queued "${updated.title}" (#${queuePosition(updated.id)}) — runs when a slot frees up.`
+      );
     } catch (err) {
       toast(String(err), true);
     }

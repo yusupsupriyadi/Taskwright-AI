@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
 
-use crate::models::{AutoLevel, Provider, Status, Store, Task, Workspace};
+use crate::models::{AutoLevel, Provider, Settings, Status, Store, Task, Workspace};
 use crate::runner;
 use crate::store;
 use crate::{now_ms, AppState};
@@ -171,19 +171,11 @@ pub fn set_task_status(
         store::save(&app, &s)?;
     }
 
-    // Aturan auto-run: masuk Todo => langsung jalankan agent.
+    // Masuk Todo = antrian. Penjadwal yang memutuskan kapan task benar-benar
+    // dijalankan (menghormati batas konkurensi global). Kegagalan start ditangani
+    // di dalam penjadwal: task dikembalikan ke Not Started + event `task://error`.
     if status == Status::Todo {
-        if let Err(e) = runner::start_task(&app, &task_id) {
-            // Gagal start: kembalikan ke Not Started agar tidak nyangkut di Todo.
-            let state = app.state::<AppState>();
-            if let Ok(mut s) = state.store.lock() {
-                if let Some(t) = s.tasks.iter_mut().find(|t| t.id == task_id) {
-                    t.status = Status::NotStarted;
-                }
-                let _ = store::save(&app, &s);
-            }
-            return Err(e);
-        }
+        runner::schedule(&app);
     }
 
     // Kembalikan kondisi terkini task.
@@ -196,9 +188,62 @@ pub fn set_task_status(
         .ok_or_else(|| "task not found".into())
 }
 
+/// Tombol Run: masukkan task ke antrian (Todo) lalu jadwalkan. Bila ada slot
+/// kosong penjadwal langsung menjalankannya; jika penuh, task menunggu giliran.
 #[tauri::command]
-pub fn run_task(app: AppHandle, task_id: String) -> Result<(), String> {
-    runner::start_task(&app, &task_id)
+pub fn run_task(app: AppHandle, task_id: String) -> Result<Task, String> {
+    // Sudah berjalan? jangan dobel-jalankan.
+    {
+        let running = app.state::<runner::Running>();
+        let map = running.map.lock().map_err(|_| "running locked")?;
+        if map.contains_key(&task_id) {
+            return Err("task is already running".into());
+        }
+    }
+    {
+        let state = app.state::<AppState>();
+        let mut s = state.store.lock().map_err(|_| "state locked")?;
+        let ws_id = s
+            .tasks
+            .iter()
+            .find(|t| t.id == task_id)
+            .map(|t| t.workspace_id.clone())
+            .ok_or("task not found")?;
+        let order = next_order(&s, &ws_id, Status::Todo);
+        let t = s
+            .tasks
+            .iter_mut()
+            .find(|t| t.id == task_id)
+            .ok_or("task not found")?;
+        t.status = Status::Todo;
+        t.order = order;
+        t.updated_at = now_ms();
+        store::save(&app, &s)?;
+    }
+    runner::schedule(&app);
+
+    let state = app.state::<AppState>();
+    let s = state.store.lock().map_err(|_| "state locked")?;
+    s.tasks
+        .iter()
+        .find(|t| t.id == task_id)
+        .cloned()
+        .ok_or_else(|| "task not found".into())
+}
+
+/// Ubah batas jumlah agent AI yang boleh berjalan bersamaan, lalu jadwalkan ulang
+/// (menaikkan batas dapat membuka slot untuk task yang sedang mengantre).
+#[tauri::command]
+pub fn set_max_concurrent(app: AppHandle, value: usize) -> Result<Settings, String> {
+    let settings = {
+        let state = app.state::<AppState>();
+        let mut s = state.store.lock().map_err(|_| "state locked")?;
+        s.settings.max_concurrent = value.max(1);
+        store::save(&app, &s)?;
+        s.settings.clone()
+    };
+    runner::schedule(&app);
+    Ok(settings)
 }
 
 #[tauri::command]
@@ -233,9 +278,7 @@ pub fn get_task_diff(app: AppHandle, task_id: String) -> Result<String, String> 
     let diff = run_git(&path, &["diff"]);
 
     match (status, diff) {
-        (Err(e), _) => Ok(format!(
-            "Cannot read git diff (maybe not a git repo):\n{e}"
-        )),
+        (Err(e), _) => Ok(format!("Cannot read git diff (maybe not a git repo):\n{e}")),
         (Ok(st), Ok(df)) => {
             let st = st.trim();
             let df = df.trim();
@@ -254,7 +297,9 @@ fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
     c.arg("-C").arg(cwd).args(args);
     #[cfg(windows)]
     c.creation_flags(CREATE_NO_WINDOW);
-    let out = c.output().map_err(|e| format!("git is not available: {e}"))?;
+    let out = c
+        .output()
+        .map_err(|e| format!("git is not available: {e}"))?;
     if !out.status.success() {
         return Err(String::from_utf8_lossy(&out.stderr).to_string());
     }

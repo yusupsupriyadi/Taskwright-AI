@@ -27,6 +27,9 @@ pub struct RunHandle {
 #[derive(Default)]
 pub struct Running {
     pub map: Mutex<HashMap<String, RunHandle>>,
+    /// Mengunci keputusan penjadwalan agar hanya satu `schedule()` berjalan pada
+    /// satu waktu — mencegah dua slot kosong men-dispatch task antrian yang sama.
+    pub sched: Mutex<()>,
 }
 
 /// Resolusi executable CLI dari PATH (hormati PATHEXT, mis. temukan codex.cmd).
@@ -111,7 +114,10 @@ pub fn start_task(app: &AppHandle, task_id: &str) -> Result<(), String> {
     };
 
     if !PathBuf::from(&workspace.path).is_dir() {
-        return Err(format!("workspace folder does not exist: {}", workspace.path));
+        return Err(format!(
+            "workspace folder does not exist: {}",
+            workspace.path
+        ));
     }
 
     // Guard: sudah berjalan?
@@ -217,9 +223,76 @@ pub fn start_task(app: &AppHandle, task_id: &str) -> Result<(), String> {
                 run.ok = Some(ok);
             }
         });
+
+        // Slot baru saja kosong → angkat task antrian berikutnya bila ada.
+        schedule(&app_w);
     });
 
     Ok(())
+}
+
+/// Penjadwal antrian: angkat task berstatus Todo menjadi Doing selama masih ada
+/// slot, menghormati batas konkurensi global `settings.max_concurrent`.
+/// Dipanggil tiap kali task masuk antrian, sebuah run selesai, atau batas diubah.
+pub fn schedule(app: &AppHandle) {
+    let running = app.state::<Running>();
+    // Hanya satu penjadwal yang boleh berjalan pada satu waktu.
+    let _guard = match running.sched.lock() {
+        Ok(g) => g,
+        Err(_) => return,
+    };
+
+    loop {
+        // Batas konkurensi terkini (minimal 1).
+        let max = {
+            let state = app.state::<AppState>();
+            let s = match state.store.lock() {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            s.settings.max_concurrent.max(1)
+        };
+        // Slot terpakai = jumlah proses agent yang hidup.
+        let used = match running.map.lock() {
+            Ok(m) => m.len(),
+            Err(_) => return,
+        };
+        if used >= max {
+            break;
+        }
+
+        // Task antrian berikutnya: FIFO global (paling lama menunggu lebih dulu).
+        let next = {
+            let state = app.state::<AppState>();
+            let s = match state.store.lock() {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            s.tasks
+                .iter()
+                .filter(|t| t.status == Status::Todo)
+                .min_by(|a, b| {
+                    a.updated_at
+                        .cmp(&b.updated_at)
+                        .then(a.created_at.cmp(&b.created_at))
+                })
+                .map(|t| t.id.clone())
+        };
+        let Some(id) = next else { break };
+
+        if let Err(e) = start_task(app, &id) {
+            // Gagal start (mis. CLI tak ditemukan) → keluarkan dari antrian agar
+            // tidak nyangkut, beri tahu UI, lalu coba task berikutnya.
+            set_status(app, &id, Status::NotStarted, |t| {
+                if let Some(run) = t.run.as_mut() {
+                    run.pid = None;
+                }
+            });
+            let _ = app.emit("task://error", json!({ "taskId": id, "message": e }));
+            continue;
+        }
+        // start_task sukses → `used` bertambah pada iterasi berikutnya.
+    }
 }
 
 /// Hentikan proses task (kill seluruh process tree).
@@ -264,10 +337,15 @@ fn spawn_reader<R: std::io::Read + Send + 'static>(
         let buf = BufReader::new(reader);
         for line in buf.lines() {
             let Ok(line) = line else { break };
-            let Some(text) = prettify(&line) else { continue };
+            let Some(text) = prettify(&line) else {
+                continue;
+            };
             // Tulis ke file log.
             if let Ok(path) = store::log_file(&app, &task_id) {
-                if let Ok(mut f) = std::fs::OpenOptions::new().append(true).create(true).open(&path)
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .append(true)
+                    .create(true)
+                    .open(&path)
                 {
                     let _ = writeln!(f, "{text}");
                 }
@@ -374,7 +452,11 @@ fn prettify(line: &str) -> Option<String> {
             }
         }
     }
-    if let Some(s) = v.get("item").and_then(|i| i.get("text")).and_then(|x| x.as_str()) {
+    if let Some(s) = v
+        .get("item")
+        .and_then(|i| i.get("text"))
+        .and_then(|x| x.as_str())
+    {
         return Some(s.to_string());
     }
     if let Some(msg) = v.get("msg") {

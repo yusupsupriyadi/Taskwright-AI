@@ -85,6 +85,19 @@ body {
   min-width: 180px;
 }
 
+/* Setting batas konkurensi (jumlah AI yang boleh berjalan bersamaan). */
+.queue-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.num-input {
+  width: 64px;
+  text-align: center;
+  padding: 6px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
 .topbar-right {
   margin-left: auto;
   display: flex;
@@ -349,6 +362,12 @@ textarea {
 .badge-auto {
   background: rgba(210, 153, 34, 0.14);
   color: var(--amber);
+}
+/* Posisi antrian pada kartu Todo — selaras dengan warna kolom Todo (accent). */
+.badge-queue {
+  background: rgba(91, 140, 255, 0.16);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 .card-status {
   margin-left: auto;

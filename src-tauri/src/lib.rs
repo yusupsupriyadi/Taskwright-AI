@@ -35,7 +35,18 @@ pub fn run() {
         .setup(|app| {
             // Muat state dari disk saat startup.
             let handle = app.handle().clone();
-            let loaded = store::load(&handle);
+            let mut loaded = store::load(&handle);
+            // Rekonsiliasi: proses agent tidak bertahan melewati restart app.
+            // Task yang tersimpan sebagai Doing sudah pasti mati → kembalikan ke
+            // Not Started agar tidak nyangkut & agar hitungan slot penjadwal akurat.
+            for t in loaded.tasks.iter_mut() {
+                if t.status == models::Status::Doing {
+                    t.status = models::Status::NotStarted;
+                    if let Some(run) = t.run.as_mut() {
+                        run.pid = None;
+                    }
+                }
+            }
             if let Ok(mut s) = app.state::<AppState>().store.lock() {
                 *s = loaded;
             }
@@ -50,6 +61,7 @@ pub fn run() {
             commands::update_task,
             commands::delete_task,
             commands::set_task_status,
+            commands::set_max_concurrent,
             commands::run_task,
             commands::stop_task,
             commands::get_task_log,

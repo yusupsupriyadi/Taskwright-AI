@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local AI assistant instructions (kept on disk, not tracked in git)
+/CLAUDE.md

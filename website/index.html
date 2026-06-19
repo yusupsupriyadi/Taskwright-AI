@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Taskwright AI — Agentic Kanban for your desktop</title>
+    <meta
+      name="description"
+      content="Taskwright AI is a desktop agentic Kanban board where each task card is carried out by a local AI coding CLI — Claude Code, Codex, Gemini, opencode, or Cursor. Built with Tauri 2."
+    />
+    <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;text y='.9em' font-size='90'&gt;◆&lt;/text&gt;&lt;/svg&gt;" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <!-- Top navigation -->
+    <header class="nav">
+      <a class="nav-brand" href="#top">
+        <span class="brand-mark">◆</span>
+        <span>Taskwright AI</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a href="#getting-started">Getting started</a>
+        <a href="#providers">Providers</a>
+        <a href="#auto-update">Auto-update</a>
+        <a class="nav-gh" href="https://github.com/yusupsupriyadi/Taskwright-AI" target="_blank" rel="noopener">GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <!-- Hero -->
+      <section id="top" class="hero">
+        <div class="hero-inner">
+          <span class="eyebrow">Desktop · Tauri 2 · bring your own CLI</span>
+          <h1>An agentic Kanban board for your desktop</h1>
+          <p class="lede">
+            Write a task, pick an AI agent, drop the card into <strong>Todo</strong> — a local coding CLI
+            runs it in the background, streams its log live, and moves the card to
+            <strong>Need&nbsp;Review</strong> when it's done. You review the diff and mark it
+            <strong>Done</strong>.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="#download">Download</a>
+            <a class="btn btn-ghost" href="https://github.com/yusupsupriyadi/Taskwright-AI" target="_blank" rel="noopener">View on GitHub</a>
+          </div>
+          <div class="badges">
+            <img alt="Latest release" src="https://img.shields.io/github/v/release/yusupsupriyadi/Taskwright-AI?label=release&sort=semver&color=5b8cff" />
+            <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" />
+            <img alt="Built with Tauri 2" src="https://img.shields.io/badge/built%20with-Tauri%202-24C8DB.svg" />
+            <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-555.svg" />
+          </div>
+        </div>
+
+        <!-- Stylized board preview (pure CSS, no images) -->
+        <div class="board-preview" aria-hidden="true">
+          <div class="bp-col"><span class="bp-h">Not Started</span><div class="bp-card"></div></div>
+          <div class="bp-col"><span class="bp-h">Todo</span><div class="bp-card"></div></div>
+          <div class="bp-col bp-running"><span class="bp-h">AI Running</span><div class="bp-card bp-busy"><span class="bp-dot"></span></div></div>
+          <div class="bp-col"><span class="bp-h">Need Review</span><div class="bp-card"></div></div>
+          <div class="bp-col"><span class="bp-h">Done</span><div class="bp-card bp-done"></div></div>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section id="features" class="section">
+        <h2>What it does</h2>
+        <p class="section-sub">
+          Taskwright AI turns a Kanban board into an autonomous work queue. It is built with
+          <a href="https://v2.tauri.app/" target="_blank" rel="noopener">Tauri 2</a> and a dependency-free
+          vanilla HTML/CSS/JS frontend — no framework, no bundler, no Node toolchain.
+        </p>
+        <div class="grid">
+          <article class="feature">
+            <h3>Agentic board</h3>
+            <p>Five columns — Not Started → Todo → AI Running → Need Review → Done. Drop a card into Todo and the agent runs automatically.</p>
+          </article>
+          <article class="feature">
+            <h3>Five agent providers</h3>
+            <p>Claude Code, Codex, Gemini, opencode, and Cursor — selectable per card, each with model selection.</p>
+          </article>
+          <article class="feature">
+            <h3>Live streaming logs</h3>
+            <p>Agent output is parsed and streamed into the card's detail drawer in real time.</p>
+          </article>
+          <article class="feature">
+            <h3>Built-in diff review</h3>
+            <p>Inspect the agent's <code>git diff</code> before you accept it and mark the card Done.</p>
+          </article>
+          <article class="feature">
+            <h3>Concurrency queue</h3>
+            <p>Cap how many agents run at once; extra cards wait their turn.</p>
+          </article>
+          <article class="feature">
+            <h3>In-app auto-update</h3>
+            <p>New versions install themselves from GitHub Releases, signed and verified.</p>
+          </article>
+          <article class="feature">
+            <h3>Desktop notifications</h3>
+            <p>Get pinged the moment a run finishes — no need to babysit the board.</p>
+          </article>
+          <article class="feature">
+            <h3>Local &amp; private</h3>
+            <p>State lives on your machine. Nothing leaves it except the prompts you hand to the CLIs you already use.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- Download -->
+      <section id="download" class="section">
+        <h2>Download</h2>
+        <p class="section-sub">
+          Grab the latest installer from the
+          <a href="https://github.com/yusupsupriyadi/Taskwright-AI/releases/latest" target="_blank" rel="noopener">Releases</a>
+          page. After installing, the app updates itself.
+        </p>
+        <div class="grid grid-3">
+          <a class="dl-card" href="https://github.com/yusupsupriyadi/Taskwright-AI/releases/latest/download/Taskwright-AI_windows_x64-setup.exe">
+            <span class="dl-os">Windows</span>
+            <span class="dl-file">Taskwright-AI_windows_x64-setup.exe</span>
+            <span class="dl-go">Download →</span>
+          </a>
+          <a class="dl-card" href="https://github.com/yusupsupriyadi/Taskwright-AI/releases/latest/download/Taskwright-AI_macos_universal.dmg">
+            <span class="dl-os">macOS</span>
+            <span class="dl-file">Taskwright-AI_macos_universal.dmg</span>
+            <span class="dl-go">Download →</span>
+          </a>
+          <a class="dl-card" href="https://github.com/yusupsupriyadi/Taskwright-AI/releases/latest/download/Taskwright-AI_linux_amd64.AppImage">
+            <span class="dl-os">Linux</span>
+            <span class="dl-file">Taskwright-AI_linux_amd64.AppImage<br /><small>(or .deb / .rpm)</small></span>
+            <span class="dl-go">Download →</span>
+          </a>
+        </div>
+        <p class="note">
+          ⚠️ Builds are not OS-code-signed yet, so the first run may warn (Windows SmartScreen → “Run anyway”;
+          macOS Gatekeeper → right-click → Open).
+        </p>
+      </section>
+
+      <!-- Getting started -->
+      <section id="getting-started" class="section">
+        <h2>Getting started</h2>
+        <div class="cols-2">
+          <div>
+            <h3>Requirements</h3>
+            <p class="section-sub">
+              At least one agent CLI installed and authenticated locally — <code>claude</code>, <code>codex</code>,
+              <code>gemini</code>, <code>opencode</code>, or <code>cursor-agent</code> — plus <code>git</code> on your
+              <code>PATH</code> (used for diff review). Taskwright AI does <strong>not</strong> manage authentication;
+              it uses whatever credentials those CLIs are already logged in with.
+            </p>
+          </div>
+          <div>
+            <h3>The flow</h3>
+            <ol class="steps">
+              <li>Add a workspace — the project folder agents will work in.</li>
+              <li>Create a task: a title and a prompt; pick the provider, model, and autonomy level.</li>
+              <li>Drag the card into <strong>Todo</strong> → the agent runs and the card moves to <strong>AI Running</strong>.</li>
+              <li>On completion it lands in <strong>Need Review</strong>. Open the diff, then mark it <strong>Done</strong>.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- Providers & autonomy -->
+      <section id="providers" class="section">
+        <h2>Providers &amp; autonomy</h2>
+        <p class="section-sub">
+          Each card runs at one of two autonomy levels, mapped to each provider's native flags.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Provider</th><th>CLI</th><th>Full bypass <small>(default)</small></th><th>Sandboxed</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Claude</td><td><code>claude</code></td><td><code>--dangerously-skip-permissions</code></td><td><code>--permission-mode acceptEdits</code></td></tr>
+              <tr><td>Codex</td><td><code>codex</code></td><td><code>--dangerously-bypass-approvals-and-sandbox</code></td><td><code>-s workspace-write</code></td></tr>
+              <tr><td>Gemini</td><td><code>gemini</code></td><td><code>--yolo</code></td><td><code>--approval-mode</code> (auto-edit)</td></tr>
+              <tr><td>opencode</td><td><code>opencode</code></td><td>skips permission prompts</td><td>same (no sandbox mode)</td></tr>
+              <tr><td>Cursor</td><td><code>cursor-agent</code></td><td><code>--force</code> (applies changes)</td><td>proposes changes only</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">
+          ⚠️ <strong>Security:</strong> “Full bypass” lets the agent modify files and run commands in the chosen
+          workspace without confirmation. Only point Taskwright AI at folders you trust, and prefer <strong>Sandboxed</strong>
+          when in doubt.
+        </p>
+      </section>
+
+      <!-- Auto-update -->
+      <section id="auto-update" class="section">
+        <h2>Auto-update</h2>
+        <p class="section-sub">
+          The app checks GitHub Releases on launch (silently) and via the <strong>Updates</strong> button in the topbar.
+          When a newer version exists, a banner offers <strong>Download &amp; install</strong> with a progress bar, then
+          <strong>Restart now</strong>. Updates are cryptographically signed (minisign) and verified before install.
+        </p>
+        <p class="section-sub">
+          The first updater-enabled build is a one-time manual download; from then on, updates land in-app. Updatable
+          installers are NSIS (Windows), <code>.app</code> (macOS), and AppImage (Linux).
+        </p>
+      </section>
+
+      <!-- Architecture / build -->
+      <section id="architecture" class="section">
+        <h2>Under the hood</h2>
+        <div class="cols-2">
+          <div>
+            <h3>How it works</h3>
+            <p class="section-sub">
+              The frontend is served as static files and talks to the Rust backend over Tauri's IPC bridge. When a card
+              runs, the backend resolves the chosen CLI, spawns it with the workspace as its working directory, and feeds
+              the prompt over stdin (or as an argument, per provider). Output is read as JSONL, condensed into readable
+              log lines, and streamed to the UI via Tauri events. Stopping a run kills the whole process tree.
+            </p>
+          </div>
+          <div>
+            <h3>Build from source</h3>
+            <pre class="code"><code># Run in development (hot-reloads src/)
+cargo tauri dev
+
+# Produce installers (src-tauri/target/release/bundle/)
+cargo tauri build</code></pre>
+            <p class="section-sub">
+              Full details live in the repo:
+              <a href="https://github.com/yusupsupriyadi/Taskwright-AI/blob/master/docs/development.md" target="_blank" rel="noopener">Development</a>,
+              <a href="https://github.com/yusupsupriyadi/Taskwright-AI/blob/master/docs/architecture.md" target="_blank" rel="noopener">Architecture</a>,
+              and <a href="https://github.com/yusupsupriyadi/Taskwright-AI/blob/master/docs/build-and-release.md" target="_blank" rel="noopener">Build &amp; release</a>.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <span><span class="brand-mark">◆</span> Taskwright AI</span>
+        <nav class="footer-links">
+          <a href="https://github.com/yusupsupriyadi/Taskwright-AI" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/yusupsupriyadi/Taskwright-AI/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/yusupsupriyadi/Taskwright-AI/blob/master/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+          <a href="https://github.com/yusupsupriyadi/Taskwright-AI/blob/master/LICENSE" target="_blank" rel="noopener">License (MIT)</a>
+        </nav>
+        <span class="muted">© 2026 Yusup · MIT</span>
+      </div>
+    </footer>
+  </body>
+</html>

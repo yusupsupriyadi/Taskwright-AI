@@ -9,6 +9,9 @@ Every task card is carried out by a local AI coding CLI — Claude Code, Codex, 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Built with Tauri 2](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB.svg)](https://v2.tauri.app/)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-555.svg)
+[![Docs site](https://img.shields.io/badge/docs-website-5b8cff.svg)](https://yusupsupriyadi.github.io/Taskwright-AI/)
+
+**📖 [Documentation site →](https://yusupsupriyadi.github.io/Taskwright-AI/)**
 
 </div>
 
@@ -119,6 +122,7 @@ docs/           Documentation
 
 ## Documentation
 
+- **[Documentation site](https://yusupsupriyadi.github.io/Taskwright-AI/)** — the hosted docs, nicely browsable.
 - [Development](./docs/development.md) — local commands, verification, conventions.
 - [Architecture](./docs/architecture.md) — how the frontend and Rust backend talk, and how agents are run.
 - [Build & release](./docs/build-and-release.md) — building installers, the release pipeline, and auto-update.

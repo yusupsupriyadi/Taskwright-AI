@@ -47,6 +47,30 @@ function toast(msg, isError = false) {
   toastTimer = setTimeout(() => el.classList.add("hidden"), 4000);
 }
 
+// Dialog konfirmasi reusable; resolve(true) bila user menyetujui, resolve(false) bila batal.
+let confirmResolver = null;
+function confirmDialog({ title = "Confirm", message = "", confirmLabel = "Confirm", danger = true } = {}) {
+  return new Promise((resolve) => {
+    confirmResolver = resolve;
+    $("#confirm-title").textContent = title;
+    $("#confirm-message").textContent = message;
+    const okBtn = $("#confirm-ok");
+    okBtn.textContent = confirmLabel;
+    okBtn.classList.toggle("btn-danger", danger);
+    okBtn.classList.toggle("btn-primary", !danger);
+    $("#confirm-overlay").classList.remove("hidden");
+    okBtn.focus();
+  });
+}
+
+function closeConfirm(result) {
+  if (!confirmResolver) return;
+  $("#confirm-overlay").classList.add("hidden");
+  const resolve = confirmResolver;
+  confirmResolver = null;
+  resolve(result);
+}
+
 function activeWorkspace() {
   return store.workspaces.find((w) => w.id === activeWs) || null;
 }
@@ -434,6 +458,19 @@ function setupUi() {
   $("#ws-remove").addEventListener("click", async () => {
     if (!activeWs) return;
     const ws = activeWorkspace();
+    const taskCount = store.tasks.filter((t) => t.workspace_id === activeWs).length;
+    const taskNote =
+      taskCount > 0
+        ? ` Its ${taskCount} task${taskCount === 1 ? "" : "s"} will also be removed.`
+        : "";
+    const ok = await confirmDialog({
+      title: "Remove workspace",
+      message:
+        `Remove "${ws?.name}" from Taskwright?${taskNote}` +
+        " The folder and its files on disk are not deleted.",
+      confirmLabel: "Remove",
+    });
+    if (!ok) return;
     try {
       await invoke("remove_workspace", { id: activeWs });
       await refreshState();
@@ -444,6 +481,14 @@ function setupUi() {
   });
 
   $("#task-new").addEventListener("click", () => openModal(null));
+
+  // Confirmation dialog
+  $("#confirm-ok").addEventListener("click", () => closeConfirm(true));
+  $("#confirm-cancel").addEventListener("click", () => closeConfirm(false));
+  $("#confirm-close").addEventListener("click", () => closeConfirm(false));
+  $("#confirm-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "confirm-overlay") closeConfirm(false);
+  });
 
   // Modal
   $("#modal-close").addEventListener("click", closeModal);
@@ -518,11 +563,16 @@ function setupUi() {
     })
   );
 
-  // Esc menutup modal/drawer
+  // Esc menutup confirm/modal/drawer; Enter mengonfirmasi dialog yang terbuka
   document.addEventListener("keydown", (e) => {
+    const confirmOpen = !$("#confirm-overlay").classList.contains("hidden");
     if (e.key === "Escape") {
-      if (!$("#modal-overlay").classList.contains("hidden")) closeModal();
+      if (confirmOpen) closeConfirm(false);
+      else if (!$("#modal-overlay").classList.contains("hidden")) closeModal();
       else if (!$("#drawer-overlay").classList.contains("hidden")) closeDrawer();
+    } else if (e.key === "Enter" && confirmOpen) {
+      e.preventDefault();
+      closeConfirm(true);
     }
   });
 }

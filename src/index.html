@@ -123,6 +123,30 @@
       </aside>
     </div>
 
+    <!-- Confirmation dialog -->
+    <div id="confirm-overlay" class="overlay hidden">
+      <div
+        class="modal modal-sm"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+        aria-describedby="confirm-message"
+      >
+        <div class="modal-head">
+          <h3 id="confirm-title">Confirm</h3>
+          <button id="confirm-close" class="icon-btn" aria-label="Close">✕</button>
+        </div>
+        <div class="modal-body">
+          <p id="confirm-message" class="confirm-message"></p>
+        </div>
+        <div class="modal-foot">
+          <span class="spacer"></span>
+          <button id="confirm-cancel" class="btn btn-ghost">Cancel</button>
+          <button id="confirm-ok" class="btn btn-danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
   </body>

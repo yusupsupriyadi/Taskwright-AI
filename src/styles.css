@@ -432,6 +432,15 @@ textarea {
   border-radius: 12px;
   box-shadow: var(--shadow);
 }
+.modal-sm {
+  width: 420px;
+}
+.confirm-message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
 .modal-head,
 .modal-foot {
   display: flex;

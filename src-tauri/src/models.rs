@@ -15,6 +15,9 @@ pub enum Status {
 pub enum Provider {
     Claude,
     Codex,
+    Gemini,
+    Opencode,
+    Cursor,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

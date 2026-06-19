@@ -38,11 +38,24 @@ fn resolve_program(provider: Provider) -> Result<PathBuf, String> {
     let bin = match provider {
         Provider::Claude => "claude",
         Provider::Codex => "codex",
+        Provider::Gemini => "gemini",
+        Provider::Opencode => "opencode",
+        Provider::Cursor => "cursor-agent",
     };
     which::which(bin).map_err(|e| format!("CLI '{bin}' not found in PATH: {e}"))
 }
 
-/// Argumen sesuai provider + level otonomi. Prompt dikirim via STDIN, bukan arg.
+/// Apakah prompt dikirim lewat STDIN (true) atau sebagai argumen CLI (false).
+/// claude/codex/gemini membaca stdin; opencode & cursor menerima prompt sebagai arg.
+fn prompt_via_stdin(provider: Provider) -> bool {
+    matches!(
+        provider,
+        Provider::Claude | Provider::Codex | Provider::Gemini
+    )
+}
+
+/// Argumen sesuai provider + level otonomi. Untuk claude/codex/gemini prompt
+/// dikirim via STDIN; untuk opencode/cursor prompt ikut sebagai argumen di sini.
 fn build_args(task: &Task, workspace: &Workspace) -> Vec<String> {
     let mut args: Vec<String> = Vec::new();
     match task.provider {
@@ -87,6 +100,52 @@ fn build_args(task: &Task, workspace: &Workspace) -> Vec<String> {
             }
             // '-' memaksa codex membaca prompt dari stdin.
             args.push("-".into());
+        }
+        Provider::Gemini => {
+            // Prompt dibaca dari STDIN (mode headless aktif di lingkungan non-TTY).
+            if !task.model.trim().is_empty() {
+                args.push("-m".into());
+                args.push(task.model.trim().into());
+            }
+            match task.auto_level {
+                AutoLevel::FullBypass => args.push("--yolo".into()),
+                AutoLevel::Sandboxed => {
+                    // Auto-approve edit, tool lain ditolak otomatis (tanpa prompt).
+                    args.push("--approval-mode".into());
+                    args.push("auto_edit".into());
+                }
+            }
+        }
+        Provider::Opencode => {
+            args.push("run".into());
+            if !task.model.trim().is_empty() {
+                // Format model opencode: provider/model (mis. anthropic/claude-...).
+                args.push("--model".into());
+                args.push(task.model.trim().into());
+            }
+            // opencode bisa menggantung menunggu approval di mode run → selalu
+            // lewati permission. opencode tidak punya mode sandbox terpisah, jadi
+            // kedua level otonomi memakai flag yang sama.
+            args.push("--dangerously-skip-permissions".into());
+            // opencode tidak membaca stdin → prompt sebagai argumen posisional.
+            args.push(task.prompt.clone());
+        }
+        Provider::Cursor => {
+            // -p = mode print/non-interaktif; output teks agar log ringkas.
+            args.push("-p".into());
+            args.push("--output-format".into());
+            args.push("text".into());
+            if !task.model.trim().is_empty() {
+                args.push("-m".into());
+                args.push(task.model.trim().into());
+            }
+            // cursor-agent tak punya sandbox: FullBypass menerapkan perubahan
+            // (--force); Sandboxed hanya mengusulkan (tanpa --force).
+            if matches!(task.auto_level, AutoLevel::FullBypass) {
+                args.push("--force".into());
+            }
+            // Prompt sebagai argumen posisional terakhir.
+            args.push(task.prompt.clone());
         }
     }
     args
@@ -149,10 +208,13 @@ pub fn start_task(app: &AppHandle, task_id: &str) -> Result<(), String> {
     let pid = child.id();
     let stop = Arc::new(AtomicBool::new(false));
 
-    // Kirim prompt via stdin lalu tutup.
+    // Kirim prompt via stdin (untuk CLI yang membacanya dari stdin) lalu tutup.
     if let Some(mut stdin) = child.stdin.take() {
-        let _ = stdin.write_all(task.prompt.as_bytes());
-        // drop(stdin) menutup pipe -> EOF bagi CLI.
+        if prompt_via_stdin(task.provider) {
+            let _ = stdin.write_all(task.prompt.as_bytes());
+        }
+        // drop(stdin) menutup pipe -> EOF: mencegah CLI berbasis-argumen
+        // menggantung menunggu input.
     }
 
     // Bersihkan log run sebelumnya.

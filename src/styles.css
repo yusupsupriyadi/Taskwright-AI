@@ -371,6 +371,18 @@ textarea {
   background: rgba(63, 185, 80, 0.16);
   color: var(--green);
 }
+.badge-gemini {
+  background: rgba(91, 140, 255, 0.16);
+  color: var(--accent);
+}
+.badge-opencode {
+  background: rgba(45, 212, 191, 0.16);
+  color: #2dd4bf;
+}
+.badge-cursor {
+  background: rgba(247, 120, 186, 0.16);
+  color: #f778ba;
+}
 .badge-model {
   background: var(--bg);
   color: var(--text-dim);

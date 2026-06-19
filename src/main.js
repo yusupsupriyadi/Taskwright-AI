@@ -13,7 +13,21 @@ const COLUMNS = [
 const MODELS = {
   claude: ["(default)", "claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"],
   codex: ["(default)", "gpt-5-codex", "gpt-5", "o3", "o4-mini"],
+  gemini: ["(default)", "gemini-2.5-pro", "gemini-2.5-flash"],
+  // opencode pakai format model "provider/model"; cursor model name bebas — pakai Custom.
+  opencode: ["(default)"],
+  cursor: ["(default)"],
 };
+
+// Label tampilan tiap provider (key = nilai yang dikirim ke backend).
+const PROVIDER_LABELS = {
+  claude: "Claude",
+  codex: "Codex",
+  gemini: "Gemini",
+  opencode: "opencode",
+  cursor: "Cursor",
+};
+const providerLabel = (p) => PROVIDER_LABELS[p] || p;
 
 const CUSTOM = "__custom__";
 
@@ -162,7 +176,7 @@ function renderBoard() {
 }
 
 function cardHTML(t) {
-  const provBadge = `<span class="badge badge-${t.provider}">${t.provider === "claude" ? "Claude" : "Codex"}</span>`;
+  const provBadge = `<span class="badge badge-${t.provider}">${esc(providerLabel(t.provider))}</span>`;
   const modelBadge = t.model ? `<span class="badge badge-model">${esc(t.model)}</span>` : "";
   const autoBadge = `<span class="badge badge-auto">${t.auto_level === "full_bypass" ? "full" : "sandbox"}</span>`;
   // Badge posisi antrian hanya untuk kartu di kolom Todo (menunggu giliran).
@@ -366,7 +380,7 @@ async function openDrawer(id) {
   drawerTaskId = id;
   $("#d-title").textContent = t.title || "(untitled)";
   $("#d-meta").innerHTML =
-    `<span class="badge badge-${t.provider}">${t.provider}</span>` +
+    `<span class="badge badge-${t.provider}">${esc(providerLabel(t.provider))}</span>` +
     (t.model ? `<span class="badge badge-model">${esc(t.model)}</span>` : "") +
     `<span class="badge badge-auto">${t.auto_level === "full_bypass" ? "full bypass" : "sandboxed"}</span>` +
     `<span class="badge badge-model">${t.status}</span>`;

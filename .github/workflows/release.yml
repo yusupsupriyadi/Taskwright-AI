@@ -1,0 +1,135 @@
+name: Release
+
+# Tag a version to publish, e.g. `git tag v0.2.0 && git push origin v0.2.0`.
+# A draft GitHub Release is created with the Windows installer, the macOS
+# (universal .dmg/.app) bundle and the Linux (.deb/.AppImage) bundle attached,
+# plus the signed updater artifacts + a merged `latest.json`; review it and
+# click "Publish".
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      # Build the three OSes ONE AT A TIME. The first job creates the draft
+      # release; the next two find it (same tag) and add their bundles, merging
+      # their platform into the single updater `latest.json`. Running them in
+      # parallel races to create the release — that splits assets across
+      # duplicate drafts and leaves each `latest.json` covering only some
+      # platforms, which breaks the updater.
+      max-parallel: 1
+      matrix:
+        include:
+          - os: windows-latest
+            args: ''
+            # e.g. Taskwright-AI_windows_x64-setup.exe / _x64.msi
+            assetNamePattern: 'Taskwright-AI_windows_[arch][setup][ext]'
+          - os: macos-latest
+            # Universal binary so the .dmg runs on both Apple Silicon and Intel.
+            args: '--target universal-apple-darwin'
+            # e.g. Taskwright-AI_macos_universal.dmg
+            assetNamePattern: 'Taskwright-AI_macos_[arch][ext]'
+          - os: ubuntu-latest
+            args: ''
+            # e.g. Taskwright-AI_linux_amd64.deb / .AppImage / .rpm
+            assetNamePattern: 'Taskwright-AI_linux_[arch][ext]'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Apple universal targets
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # Tauri (WebKitGTK) system libraries needed to build the Linux bundle.
+      - name: Install Linux build dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      # Build the release body: the matching CHANGELOG section for this tag
+      # (so every release's notes carry its changelog) followed by a download
+      # note. On workflow_dispatch (no tag) no section matches, so only the note
+      # is used — and no release is created anyway.
+      - name: Compose release notes from CHANGELOG
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES="$(awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { capture = 1; next }
+            capture && /^## \[/ { exit }
+            capture { print }
+          ' CHANGELOG.md)"
+          {
+            echo "RELEASE_BODY<<__CHANGELOG_EOF__"
+            if [ -n "$NOTES" ]; then printf '%s\n\n' "$NOTES"; fi
+            echo "## Download"
+            echo ""
+            echo "- **Windows:** Taskwright-AI_windows_x64-setup.exe"
+            echo "- **macOS:** Taskwright-AI_macos_universal.dmg"
+            echo "- **Linux:** Taskwright-AI_linux_amd64.AppImage (or .deb / .rpm)"
+            echo ""
+            echo "The other assets (latest.json, .app.tar.gz) are used by the in-app auto-updater — you can ignore them. Builds are not code-signed yet, so the OS may warn on first run (Windows SmartScreen / macOS Gatekeeper — on macOS, right-click the app and choose Open)."
+            echo "__CHANGELOG_EOF__"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Updater signing — with these present (createUpdaterArtifacts is on in
+          # tauri.conf.json), Tauri generates signed update bundles + .sig files,
+          # and tauri-action uploads them plus a merged latest.json to the release.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # Empty on workflow_dispatch -> builds without creating a release.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('Taskwright AI {0}', github.ref_name) || '' }}
+          releaseBody: ${{ env.RELEASE_BODY }}
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+          # Per-OS asset names (defined in the matrix) so downloads are clearly labeled.
+          assetNamePattern: ${{ matrix.assetNamePattern }}
+          # Our primary Windows download is the NSIS `-setup.exe`, so point the
+          # updater's generic `windows-x86_64` entry at NSIS (not the MSI) — an
+          # NSIS install then upgrades in place instead of spawning a parallel one.
+          updaterJsonPreferNsis: true
+          # Don't attach the standalone `.sig` files to the release. The updater
+          # reads the signature inlined in `latest.json` at runtime, so the loose
+          # `.sig` assets are just confusing clutter on the downloads page.
+          uploadUpdaterSignatures: false
+
+      # `uploadUpdaterSignatures: false` has not reliably kept `.sig` files off
+      # the release, so sweep them explicitly. Runs on every leg — the matrix is
+      # serialized, so the last leg leaves the release clean; idempotent if none
+      # are present.
+      - name: Remove standalone .sig assets
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name | select(endswith(".sig"))' |
+          while read -r asset; do
+            echo "deleting $asset"
+            gh release delete-asset "$GITHUB_REF_NAME" "$asset" \
+              --repo "$GITHUB_REPOSITORY" -y
+          done

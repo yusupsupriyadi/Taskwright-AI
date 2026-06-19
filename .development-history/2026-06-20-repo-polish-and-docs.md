@@ -31,3 +31,7 @@ stopped tracking `CLAUDE.md` in git while keeping it on disk.
   assistant — do not re-add it to git (it's gitignored).
 - Docs reflect the real provider/flag mapping from `runner.rs` and the actual
   `release.yml`; keep them in sync if those change.
+
+**Follow-up (same day):** also untracked local tooling config — `/.serena/`
+(Serena MCP project + memories) and `/.vscode/` (editor settings) are now
+`git rm --cached` + gitignored, kept on disk. Do not re-add them to git.

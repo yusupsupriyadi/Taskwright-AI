@@ -13,8 +13,7 @@ dist-ssr
 *.local
 
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 .idea
 .DS_Store
 *.suo
@@ -23,5 +22,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# Local AI assistant instructions (kept on disk, not tracked in git)
+# Local AI assistant / tooling config (kept on disk, not tracked in git)
 /CLAUDE.md
+/.serena/

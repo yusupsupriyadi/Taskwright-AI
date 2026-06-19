@@ -681,11 +681,130 @@ async function deleteTask(id) {
   }
 }
 
+// ---------- Auto-update ----------
+// Frontend-driven via Tauri updater + process plugins (akses lewat global
+// window.__TAURI__ karena withGlobalTauri=true). Cek senyap sekali saat launch,
+// plus tombol "Updates" manual di topbar.
+let pendingUpdate = null; // objek Update dari check()
+let launchCheckDone = false;
+let updateBusy = false;
+
+function updateEls() {
+  return {
+    banner: $("#update-banner"),
+    text: $("#update-banner-text"),
+    progress: $("#update-progress"),
+    bar: $("#update-progress-bar"),
+    install: $("#update-install"),
+    restart: $("#update-restart"),
+  };
+}
+
+function showUpdateBanner(update) {
+  pendingUpdate = update;
+  const e = updateEls();
+  e.text.textContent = `Versi ${update.version} tersedia (saat ini ${update.currentVersion}).`;
+  e.progress.classList.add("hidden");
+  e.bar.style.width = "0%";
+  e.install.classList.remove("hidden");
+  e.install.disabled = false;
+  e.restart.classList.add("hidden");
+  e.banner.classList.remove("hidden");
+}
+
+function hideUpdateBanner() {
+  updateEls().banner.classList.add("hidden");
+}
+
+// Cek update. silent=true → diam total bila gagal/tidak ada (dipakai saat launch,
+// agar offline / dijalankan di luar Tauri tidak memunculkan error).
+async function checkForUpdates(silent = false) {
+  const updater = window.__TAURI__?.updater;
+  if (!updater || typeof updater.check !== "function") {
+    if (!silent) toast("Updater tidak tersedia di lingkungan ini.", true);
+    return;
+  }
+  try {
+    const update = await updater.check();
+    if (update) {
+      showUpdateBanner(update);
+    } else if (!silent) {
+      toast("Kamu sudah memakai versi terbaru.");
+    }
+  } catch (err) {
+    if (!silent) toast(`Gagal memeriksa update: ${err}`, true);
+  }
+}
+
+async function downloadAndInstallUpdate() {
+  if (!pendingUpdate || updateBusy) return;
+  updateBusy = true;
+  const e = updateEls();
+  e.install.disabled = true;
+  e.progress.classList.remove("hidden");
+  let total = 0;
+  let downloaded = 0;
+  try {
+    await pendingUpdate.downloadAndInstall((event) => {
+      switch (event.event) {
+        case "Started":
+          total = event.data?.contentLength || 0;
+          e.text.textContent = "Mengunduh update…";
+          break;
+        case "Progress":
+          downloaded += event.data?.chunkLength || 0;
+          if (total > 0) {
+            const pct = Math.min(100, Math.round((downloaded / total) * 100));
+            e.bar.style.width = `${pct}%`;
+            e.text.textContent = `Mengunduh update… ${pct}%`;
+          }
+          break;
+        case "Finished":
+          e.bar.style.width = "100%";
+          break;
+      }
+    });
+    e.progress.classList.add("hidden");
+    e.text.textContent = "Update terpasang. Restart untuk menerapkannya.";
+    e.restart.classList.remove("hidden");
+  } catch (err) {
+    e.progress.classList.add("hidden");
+    e.install.disabled = false;
+    e.text.textContent = `Gagal memasang update: ${err}`;
+    toast(`Gagal memasang update: ${err}`, true);
+  } finally {
+    updateBusy = false;
+  }
+}
+
+async function restartForUpdate() {
+  const proc = window.__TAURI__?.process;
+  if (!proc || typeof proc.relaunch !== "function") return;
+  try {
+    await proc.relaunch();
+  } catch (err) {
+    toast(`Gagal me-restart aplikasi: ${err}`, true);
+  }
+}
+
+function setupUpdater() {
+  $("#check-updates")?.addEventListener("click", () => checkForUpdates(false));
+  $("#update-install")?.addEventListener("click", downloadAndInstallUpdate);
+  $("#update-restart")?.addEventListener("click", restartForUpdate);
+  $("#update-dismiss")?.addEventListener("click", hideUpdateBanner);
+  // Cek senyap sekali per peluncuran aplikasi.
+  if (!launchCheckDone) {
+    launchCheckDone = true;
+    checkForUpdates(true);
+  }
+}
+
 // ---------- Init ----------
 async function init() {
   setupUi();
   setupDnd();
   setupEvents();
+  setupUpdater();
   await refreshState();
 }
 

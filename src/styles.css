@@ -793,3 +793,48 @@ textarea:focus {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---------- Auto-update banner ---------- */
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 18px;
+  background: linear-gradient(90deg, var(--accent-dim), var(--bg-elev));
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  flex: 0 0 auto;
+}
+.update-banner-icon {
+  color: var(--accent);
+  font-size: 16px;
+}
+.update-banner-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.update-progress {
+  flex: 0 0 160px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.update-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.15s ease;
+}

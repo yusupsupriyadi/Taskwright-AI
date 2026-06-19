@@ -38,9 +38,24 @@
 
       <div class="topbar-right">
         <span id="ws-path" class="ws-path"></span>
+        <button id="check-updates" class="btn btn-ghost" title="Check for app updates">⟳ Updates</button>
         <button id="task-new" class="btn btn-primary">+ Task</button>
       </div>
     </header>
+
+    <!-- Update banner (hidden until an update is available) -->
+    <div id="update-banner" class="update-banner hidden" role="status" aria-live="polite">
+      <span class="update-banner-icon" aria-hidden="true">⤓</span>
+      <span id="update-banner-text" class="update-banner-text"></span>
+      <div class="update-progress hidden" id="update-progress">
+        <div class="update-progress-bar" id="update-progress-bar"></div>
+      </div>
+      <div class="update-banner-actions">
+        <button id="update-install" class="btn btn-primary btn-sm">Download &amp; install</button>
+        <button id="update-restart" class="btn btn-success btn-sm hidden">Restart now</button>
+        <button id="update-dismiss" class="btn btn-ghost btn-sm" title="Dismiss">✕</button>
+      </div>
+    </div>
 
     <!-- Board -->
     <main id="board" class="board"></main>

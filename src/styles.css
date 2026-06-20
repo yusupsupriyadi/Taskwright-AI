@@ -802,6 +802,14 @@ textarea:focus {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
   }
+  /* Pengecualian: indikator "AI sedang berjalan" adalah status fungsional,
+     bukan gerak dekoratif — biarkan tetap berputar/berdenyut. */
+  .spinner {
+    animation-duration: 0.7s !important;
+  }
+  .col-doing .column-dot {
+    animation-duration: 1.6s !important;
+  }
 }
 
 /* ---------- Auto-update banner ---------- */

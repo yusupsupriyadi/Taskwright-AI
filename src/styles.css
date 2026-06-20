@@ -166,6 +166,16 @@ body {
   background: var(--bg-card);
   color: var(--text);
 }
+/* Tombol khusus ikon: padding kotak, isi di-tengah, ikut warna teks. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px;
+}
+.btn-icon svg {
+  display: block;
+}
 .btn-danger {
   background: var(--red);
   color: #fff;

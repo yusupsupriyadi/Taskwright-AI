@@ -195,7 +195,11 @@ pub fn start_task(app: &AppHandle, task_id: &str) -> Result<(), String> {
             .find(|w| w.id == task.workspace_id)
             .cloned()
             .ok_or("task workspace not found")?;
-        let cli_override = s.settings.cli_paths.get(provider_key(task.provider)).cloned();
+        let cli_override = s
+            .settings
+            .cli_paths
+            .get(provider_key(task.provider))
+            .cloned();
         (task, workspace, cli_override)
     };
 

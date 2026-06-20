@@ -32,7 +32,11 @@ const providerLabel = (p) => PROVIDER_LABELS[p] || p;
 const CUSTOM = "__custom__";
 
 // ---------- State ----------
-let store = { workspaces: [], tasks: [], settings: { max_concurrent: 2, notify_on_finish: true } };
+let store = {
+  workspaces: [],
+  tasks: [],
+  settings: { max_concurrent: 2, notify_on_finish: true, check_updates_on_launch: true, cli_paths: {} },
+};
 let activeWs = null; // id workspace aktif
 let editingId = null; // id task yang sedang diedit (null = baru)
 let drawerTaskId = null; // task yang terbuka di drawer
@@ -120,7 +124,9 @@ function queuePosition(taskId) {
 // ---------- Pemuatan state ----------
 async function refreshState() {
   store = await invoke("load_state");
-  if (!store.settings) store.settings = { max_concurrent: 2, notify_on_finish: true };
+  if (!store.settings)
+    store.settings = { max_concurrent: 2, notify_on_finish: true, check_updates_on_launch: true, cli_paths: {} };
+  if (!store.settings.cli_paths) store.settings.cli_paths = {};
   if (!store.workspaces.some((w) => w.id === activeWs)) {
     activeWs = store.workspaces[0]?.id || null;
   }
@@ -621,6 +627,90 @@ function setupUi() {
 
   $("#task-new").addEventListener("click", () => openModal(null));
 
+  // ----- Settings panel -----
+  $("#open-settings").addEventListener("click", openSettings);
+  $("#settings-close").addEventListener("click", closeSettings);
+  $("#settings-done").addEventListener("click", closeSettings);
+  $("#settings-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "settings-overlay") closeSettings();
+  });
+  document
+    .querySelectorAll(".settings-tab")
+    .forEach((tab) => tab.addEventListener("click", () => switchSettingsTab(tab.dataset.stab)));
+
+  // General: tiap kontrol simpan seluruh objek settings (menjaga cli_paths).
+  $("#set-max-concurrent").addEventListener("change", async (e) => {
+    const v = Math.min(20, Math.max(1, parseInt(e.target.value, 10) || 1));
+    e.target.value = v;
+    store.settings.max_concurrent = v;
+    if (await applySettings()) toast(`Max concurrent AI set to ${store.settings.max_concurrent}.`);
+  });
+  $("#set-notify-on-finish").addEventListener("change", async (e) => {
+    store.settings.notify_on_finish = e.target.checked;
+    if (await applySettings())
+      toast(e.target.checked ? "Finish notifications enabled." : "Finish notifications disabled.");
+  });
+  $("#set-check-updates").addEventListener("change", async (e) => {
+    store.settings.check_updates_on_launch = e.target.checked;
+    if (await applySettings())
+      toast(e.target.checked ? "Update check on launch enabled." : "Update check on launch disabled.");
+  });
+
+  // Providers / CLI
+  $("#cli-recheck").addEventListener("click", refreshCliList);
+  $("#cli-list").addEventListener("change", async (e) => {
+    const input = e.target.closest(".cli-path-input");
+    if (!input) return;
+    const prov = input.dataset.prov;
+    const val = input.value.trim();
+    store.settings.cli_paths = store.settings.cli_paths || {};
+    if (val) store.settings.cli_paths[prov] = val;
+    else delete store.settings.cli_paths[prov];
+    if (await applySettings()) {
+      await refreshCliList();
+      toast(
+        val
+          ? `Custom path set for ${providerLabel(prov)}.`
+          : `Custom path cleared for ${providerLabel(prov)}.`
+      );
+    }
+  });
+
+  // Data & About
+  $("#open-data-dir").addEventListener("click", async () => {
+    const path = $("#about-data-dir").dataset.path;
+    if (!path) return;
+    try {
+      await invoke("open_external", { target: path });
+    } catch (err) {
+      toast(String(err), true);
+    }
+  });
+  $("#clear-logs").addEventListener("click", async () => {
+    const ok = await confirmDialog({
+      title: "Clear all logs",
+      message:
+        "Delete all saved agent run logs? Logs of currently running tasks are kept. This cannot be undone.",
+      confirmLabel: "Clear logs",
+    });
+    if (!ok) return;
+    try {
+      const n = await invoke("clear_logs");
+      toast(`Cleared ${n} log file${n === 1 ? "" : "s"}.`);
+    } catch (err) {
+      toast(String(err), true);
+    }
+  });
+  $(".settings-links").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-link]");
+    if (!btn) return;
+    try {
+      await invoke("open_external", { target: btn.dataset.link });
+    } catch (err) {
+      toast(String(err), true);
+    }
+  });
+
   // Confirmation dialog
   $("#confirm-ok").addEventListener("click", () => closeConfirm(true));
   $("#confirm-cancel").addEventListener("click", () => closeConfirm(false));
@@ -716,6 +806,7 @@ function setupUi() {
     const confirmOpen = !$("#confirm-overlay").classList.contains("hidden");
     if (e.key === "Escape") {
       if (confirmOpen) closeConfirm(false);
+      else if (!$("#settings-overlay").classList.contains("hidden")) closeSettings();
       else if (!$("#modal-overlay").classList.contains("hidden")) closeModal();
       else if (!$("#drawer-overlay").classList.contains("hidden")) closeDrawer();
     } else if (e.key === "Enter" && confirmOpen) {
@@ -730,6 +821,103 @@ async function deleteTask(id) {
     await invoke("delete_task", { id });
     await refreshState();
     toast("Task removed.");
+  } catch (err) {
+    toast(String(err), true);
+  }
+}
+
+// ---------- Settings panel ----------
+function openSettings() {
+  // Isi kontrol General dari state terkini.
+  $("#set-max-concurrent").value = maxConcurrent();
+  $("#set-notify-on-finish").checked = store.settings.notify_on_finish !== false;
+  $("#set-check-updates").checked = store.settings.check_updates_on_launch !== false;
+  switchSettingsTab("general");
+  loadAboutInfo();
+  refreshCliList();
+  $("#settings-overlay").classList.remove("hidden");
+}
+
+function closeSettings() {
+  $("#settings-overlay").classList.add("hidden");
+}
+
+function switchSettingsTab(name) {
+  document
+    .querySelectorAll(".settings-tab")
+    .forEach((t) => t.classList.toggle("active", t.dataset.stab === name));
+  document
+    .querySelectorAll(".settings-panel")
+    .forEach((p) => p.classList.toggle("hidden", p.dataset.spanel !== name));
+}
+
+// Kirim seluruh objek settings ke backend (menjaga field yang tak diubah, mis.
+// cli_paths) lalu sinkronkan kontrol cepat di topbar + render ulang board.
+async function applySettings() {
+  try {
+    const settings = await invoke("update_settings", { settings: store.settings });
+    store.settings = settings;
+    const mc = $("#max-concurrent");
+    if (mc) mc.value = maxConcurrent();
+    const nf = $("#notify-on-finish");
+    if (nf) nf.checked = store.settings.notify_on_finish !== false;
+    render();
+    return true;
+  } catch (err) {
+    toast(String(err), true);
+    await refreshState();
+    return false;
+  }
+}
+
+// Render daftar deteksi CLI di tab Providers.
+async function refreshCliList() {
+  const box = $("#cli-list");
+  if (!box) return;
+  box.innerHTML = `<div class="settings-hint">Checking…</div>`;
+  let list = [];
+  try {
+    list = await invoke("check_clis");
+  } catch (err) {
+    box.innerHTML = `<div class="cli-status cli-bad">${esc(String(err))}</div>`;
+    return;
+  }
+  box.innerHTML = list.map(cliRowHTML).join("");
+}
+
+function cliRowHTML(c) {
+  const label = providerLabel(c.provider);
+  const custom = store.settings.cli_paths?.[c.provider] || "";
+  const status = c.found
+    ? `<span class="cli-status cli-ok" title="${esc(c.path || "")}">✓ ${esc(c.path || "found")}</span>`
+    : `<span class="cli-status cli-bad">✕ not found (${esc(c.bin)})</span>`;
+  return `
+    <div class="cli-row">
+      <div class="cli-row-head">
+        <span class="cli-name">${esc(label)}</span>
+        ${status}
+      </div>
+      <input
+        class="cli-path-input"
+        type="text"
+        data-prov="${esc(c.provider)}"
+        value="${esc(custom)}"
+        placeholder="Custom path to ${esc(c.bin)} (optional)"
+      />
+    </div>`;
+}
+
+// Isi tab Data & About dari backend.
+async function loadAboutInfo() {
+  try {
+    const info = await invoke("system_info");
+    $("#about-name").textContent = info.app_name || "Taskwright AI";
+    $("#about-version").textContent = info.version || "—";
+    $("#about-id").textContent = info.identifier || "—";
+    const dd = $("#about-data-dir");
+    dd.textContent = info.data_dir || "—";
+    dd.title = info.data_dir || "";
+    dd.dataset.path = info.data_dir || "";
   } catch (err) {
     toast(String(err), true);
   }
@@ -846,11 +1034,6 @@ function setupUpdater() {
   $("#update-install")?.addEventListener("click", downloadAndInstallUpdate);
   $("#update-restart")?.addEventListener("click", restartForUpdate);
   $("#update-dismiss")?.addEventListener("click", hideUpdateBanner);
-  // Cek senyap sekali per peluncuran aplikasi.
-  if (!launchCheckDone) {
-    launchCheckDone = true;
-    checkForUpdates(true);
-  }
 }
 
 // ---------- Init ----------
@@ -860,6 +1043,11 @@ async function init() {
   setupEvents();
   setupUpdater();
   await refreshState();
+  // Cek update senyap sekali saat launch, hanya bila diizinkan oleh setting.
+  if (!launchCheckDone && store.settings.check_updates_on_launch !== false) {
+    launchCheckDone = true;
+    checkForUpdates(true);
+  }
 }
 
 window.addEventListener("DOMContentLoaded", init);

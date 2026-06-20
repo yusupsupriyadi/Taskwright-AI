@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,6 +77,10 @@ fn default_notify_on_finish() -> bool {
     true
 }
 
+fn default_check_updates_on_launch() -> bool {
+    true
+}
+
 /// Preferensi aplikasi yang dipersist ke disk.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -85,6 +91,14 @@ pub struct Settings {
     /// Tampilkan notifikasi OS saat sebuah run AI selesai (sukses/gagal).
     #[serde(default = "default_notify_on_finish")]
     pub notify_on_finish: bool,
+    /// Cek update secara senyap saat aplikasi diluncurkan.
+    #[serde(default = "default_check_updates_on_launch")]
+    pub check_updates_on_launch: bool,
+    /// Override path executable CLI per provider. Key = provider key
+    /// (`claude`/`codex`/`gemini`/`opencode`/`cursor`), value = path absolut.
+    /// Kosong/absen = cari otomatis di PATH.
+    #[serde(default)]
+    pub cli_paths: HashMap<String, String>,
 }
 
 impl Default for Settings {
@@ -92,6 +106,8 @@ impl Default for Settings {
         Self {
             max_concurrent: default_max_concurrent(),
             notify_on_finish: default_notify_on_finish(),
+            check_updates_on_launch: default_check_updates_on_launch(),
+            cli_paths: HashMap::new(),
         }
     }
 }

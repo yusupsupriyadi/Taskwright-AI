@@ -49,6 +49,12 @@
 
       <div class="topbar-right">
         <span id="ws-path" class="ws-path"></span>
+        <button id="open-settings" class="btn btn-ghost btn-icon" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
         <button id="check-updates" class="btn btn-ghost" title="Check for app updates">⟳ Updates</button>
         <button id="task-new" class="btn btn-primary">+ Task</button>
       </div>
@@ -185,6 +191,104 @@
           <span class="spacer"></span>
           <button id="confirm-cancel" class="btn btn-ghost">Cancel</button>
           <button id="confirm-ok" class="btn btn-danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings panel -->
+    <div id="settings-overlay" class="overlay hidden">
+      <div class="modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <div class="modal-head">
+          <h3 id="settings-title">Settings</h3>
+          <button id="settings-close" class="icon-btn" aria-label="Close">✕</button>
+        </div>
+        <div class="settings-layout">
+          <nav class="settings-nav" role="tablist">
+            <button class="settings-tab active" data-stab="general" role="tab">General</button>
+            <button class="settings-tab" data-stab="providers" role="tab">Providers / CLI</button>
+            <button class="settings-tab" data-stab="data" role="tab">Data &amp; About</button>
+          </nav>
+
+          <div class="settings-content">
+            <!-- General -->
+            <section class="settings-panel" data-spanel="general">
+              <h4 class="settings-section-title">Execution</h4>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <span>Max running</span>
+                  <span class="settings-hint">Maximum AI agents allowed to run at the same time. Extra Todo tasks wait in the queue.</span>
+                </div>
+                <input id="set-max-concurrent" class="num-input" type="number" min="1" max="20" inputmode="numeric" />
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <span>Notify on finish</span>
+                  <span class="settings-hint">Show a desktop notification when an AI run finishes.</span>
+                </div>
+                <input id="set-notify-on-finish" class="settings-check" type="checkbox" />
+              </div>
+
+              <h4 class="settings-section-title">Updates</h4>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <span>Check for updates on launch</span>
+                  <span class="settings-hint">Silently check for a new version each time the app starts.</span>
+                </div>
+                <input id="set-check-updates" class="settings-check" type="checkbox" />
+              </div>
+            </section>
+
+            <!-- Providers / CLI -->
+            <section class="settings-panel hidden" data-spanel="providers">
+              <h4 class="settings-section-title">CLI detection</h4>
+              <p class="settings-hint">
+                Each task runs with a local CLI found in your system PATH. If a CLI isn't
+                detected, set the full path to its executable below. Leave a field empty to
+                use the PATH again.
+              </p>
+              <div id="cli-list" class="cli-list"></div>
+              <div>
+                <button id="cli-recheck" class="btn btn-ghost btn-sm">↻ Re-check</button>
+              </div>
+            </section>
+
+            <!-- Data & About -->
+            <section class="settings-panel hidden" data-spanel="data">
+              <h4 class="settings-section-title">About</h4>
+              <div class="about-grid">
+                <span class="about-key">App</span><span id="about-name" class="about-val">—</span>
+                <span class="about-key">Version</span><span id="about-version" class="about-val">—</span>
+                <span class="about-key">Identifier</span><span id="about-id" class="about-val">—</span>
+              </div>
+
+              <h4 class="settings-section-title">Storage</h4>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <span>App data folder</span>
+                  <span id="about-data-dir" class="path-display">—</span>
+                </div>
+                <button id="open-data-dir" class="btn btn-ghost btn-sm">Open folder</button>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <span>Run logs</span>
+                  <span class="settings-hint">Delete all saved agent run logs. Logs of running tasks are kept.</span>
+                </div>
+                <button id="clear-logs" class="btn btn-ghost btn-danger-ghost btn-sm">Clear all logs</button>
+              </div>
+
+              <h4 class="settings-section-title">Links</h4>
+              <div class="settings-links">
+                <button class="btn btn-ghost btn-sm" data-link="https://github.com/yusupsupriyadi/Taskwright-AI">GitHub repository</button>
+                <button class="btn btn-ghost btn-sm" data-link="https://yusupsupriyadi.github.io/Taskwright-AI/">Documentation</button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="modal-foot">
+          <span class="spacer"></span>
+          <button id="settings-done" class="btn btn-primary">Done</button>
         </div>
       </div>
     </div>

@@ -256,6 +256,147 @@ pub fn set_notify_on_finish(app: AppHandle, value: bool) -> Result<Settings, Str
     Ok(s.settings.clone())
 }
 
+/// Simpan seluruh objek Settings sekaligus (jalur utama panel Settings).
+/// Memvalidasi `max_concurrent` minimal 1, lalu menjadwalkan ulang karena
+/// perubahan batas dapat membuka slot untuk task yang mengantre.
+#[tauri::command]
+pub fn update_settings(app: AppHandle, mut settings: Settings) -> Result<Settings, String> {
+    settings.max_concurrent = settings.max_concurrent.max(1);
+    let out = {
+        let state = app.state::<AppState>();
+        let mut s = state.store.lock().map_err(|_| "state locked")?;
+        s.settings = settings;
+        store::save(&app, &s)?;
+        s.settings.clone()
+    };
+    runner::schedule(&app);
+    Ok(out)
+}
+
+/// Status deteksi sebuah CLI provider untuk panel Settings.
+#[derive(serde::Serialize)]
+pub struct CliStatus {
+    pub provider: String,
+    pub bin: String,
+    pub found: bool,
+    pub path: Option<String>,
+}
+
+/// Periksa ketersediaan tiap CLI provider: pakai override path dari settings bila
+/// diset (found = file ada), selain itu cari executable-nya di PATH.
+#[tauri::command]
+pub fn check_clis(app: AppHandle) -> Result<Vec<CliStatus>, String> {
+    let overrides = {
+        let state = app.state::<AppState>();
+        let s = state.store.lock().map_err(|_| "state locked")?;
+        s.settings.cli_paths.clone()
+    };
+    let providers = [
+        Provider::Claude,
+        Provider::Codex,
+        Provider::Gemini,
+        Provider::Opencode,
+        Provider::Cursor,
+    ];
+    let list = providers
+        .iter()
+        .map(|&p| {
+            let key = runner::provider_key(p);
+            let bin = runner::bin_name(p);
+            let ov = overrides
+                .get(key)
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty());
+            let (found, path) = match ov {
+                Some(custom) => {
+                    let is_file = std::path::Path::new(&custom).is_file();
+                    (is_file, is_file.then_some(custom))
+                }
+                None => match which::which(bin) {
+                    Ok(p) => (true, Some(p.to_string_lossy().to_string())),
+                    Err(_) => (false, None),
+                },
+            };
+            CliStatus {
+                provider: key.to_string(),
+                bin: bin.to_string(),
+                found,
+                path,
+            }
+        })
+        .collect();
+    Ok(list)
+}
+
+/// Info aplikasi + lokasi penyimpanan untuk tab "Data & About".
+#[derive(serde::Serialize)]
+pub struct SystemInfo {
+    pub app_name: String,
+    pub version: String,
+    pub identifier: String,
+    pub data_dir: String,
+    pub state_file: String,
+    pub runs_dir: String,
+}
+
+#[tauri::command]
+pub fn system_info(app: AppHandle) -> Result<SystemInfo, String> {
+    let pkg = app.package_info();
+    let path_str = |r: Result<PathBuf, String>| r.map(|p| p.to_string_lossy().to_string());
+    Ok(SystemInfo {
+        app_name: pkg.name.clone(),
+        version: pkg.version.to_string(),
+        identifier: app.config().identifier.clone(),
+        data_dir: path_str(store::data_dir(&app))?,
+        state_file: path_str(store::state_file(&app))?,
+        runs_dir: path_str(store::runs_dir(&app))?,
+    })
+}
+
+/// Buka folder/file lokal atau URL eksternal lewat aplikasi default OS.
+#[tauri::command]
+pub fn open_external(app: AppHandle, target: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let opener = app.opener();
+    let res = if target.starts_with("http://") || target.starts_with("https://") {
+        opener.open_url(target, None::<&str>)
+    } else {
+        opener.open_path(target, None::<&str>)
+    };
+    res.map_err(|e| format!("failed to open: {e}"))
+}
+
+/// Hapus semua file log run kecuali milik task yang sedang berjalan.
+/// Mengembalikan jumlah file yang dihapus.
+#[tauri::command]
+pub fn clear_logs(app: AppHandle) -> Result<usize, String> {
+    let running_ids: std::collections::HashSet<String> = {
+        let running = app.state::<runner::Running>();
+        let map = running.map.lock().map_err(|_| "running locked")?;
+        map.keys().cloned().collect()
+    };
+    let dir = store::runs_dir(&app)?;
+    let entries = match std::fs::read_dir(&dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(0), // folder runs belum ada = tidak ada log
+    };
+    let mut removed = 0usize;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("log") {
+            continue;
+        }
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        if running_ids.contains(stem) {
+            continue; // jangan hapus log task yang masih berjalan
+        }
+        if std::fs::remove_file(&path).is_ok() {
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
 #[tauri::command]
 pub fn stop_task(app: AppHandle, task_id: String) -> Result<(), String> {
     runner::stop_task(&app, &task_id)

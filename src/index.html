@@ -42,11 +42,6 @@
         <input id="max-concurrent" class="num-input" type="number" min="1" max="20" inputmode="numeric" />
       </div>
 
-      <label class="notify-toggle" title="Show a desktop notification when an AI run finishes">
-        <input id="notify-on-finish" type="checkbox" />
-        <span>Notify on finish</span>
-      </label>
-
       <div class="topbar-right">
         <span id="ws-path" class="ws-path"></span>
         <button id="open-settings" class="btn btn-ghost btn-icon" title="Settings" aria-label="Settings">
@@ -55,7 +50,6 @@
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
         </button>
-        <button id="check-updates" class="btn btn-ghost" title="Check for app updates">⟳ Updates</button>
         <button id="task-new" class="btn btn-primary">+ Task</button>
       </div>
     </header>
@@ -227,15 +221,6 @@
                 </div>
                 <input id="set-notify-on-finish" class="settings-check" type="checkbox" />
               </div>
-
-              <h4 class="settings-section-title">Updates</h4>
-              <div class="settings-row">
-                <div class="settings-row-label">
-                  <span>Check for updates on launch</span>
-                  <span class="settings-hint">Silently check for a new version each time the app starts.</span>
-                </div>
-                <input id="set-check-updates" class="settings-check" type="checkbox" />
-              </div>
             </section>
 
             <!-- Providers / CLI -->
@@ -259,6 +244,22 @@
                 <span class="about-key">App</span><span id="about-name" class="about-val">—</span>
                 <span class="about-key">Version</span><span id="about-version" class="about-val">—</span>
                 <span class="about-key">Identifier</span><span id="about-id" class="about-val">—</span>
+              </div>
+
+              <h4 class="settings-section-title">Updates</h4>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <span>Check for updates on launch</span>
+                  <span class="settings-hint">Silently check for a new version each time the app starts.</span>
+                </div>
+                <input id="set-check-updates" class="settings-check" type="checkbox" />
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-label">
+                  <span>Check now</span>
+                  <span class="settings-hint">Manually check GitHub Releases for a newer version.</span>
+                </div>
+                <button id="check-updates" class="btn btn-ghost btn-sm" title="Check for app updates">⟳ Check for updates</button>
               </div>
 
               <h4 class="settings-section-title">Storage</h4>

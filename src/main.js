@@ -132,8 +132,6 @@ async function refreshState() {
   }
   const mc = $("#max-concurrent");
   if (mc) mc.value = maxConcurrent();
-  const nf = $("#notify-on-finish");
-  if (nf) nf.checked = store.settings.notify_on_finish !== false;
   render();
 }
 
@@ -572,19 +570,6 @@ function setupUi() {
     }
   });
 
-  // Setting notifikasi: simpan preferensi tampil notifikasi saat run selesai.
-  $("#notify-on-finish").addEventListener("change", async (e) => {
-    const value = e.target.checked;
-    try {
-      const settings = await invoke("set_notify_on_finish", { value });
-      store.settings = settings;
-      toast(value ? "Finish notifications enabled." : "Finish notifications disabled.");
-    } catch (err) {
-      toast(String(err), true);
-      await refreshState();
-    }
-  });
-
   const addWs = async () => {
     try {
       const path = await invoke("pick_folder");
@@ -859,8 +844,6 @@ async function applySettings() {
     store.settings = settings;
     const mc = $("#max-concurrent");
     if (mc) mc.value = maxConcurrent();
-    const nf = $("#notify-on-finish");
-    if (nf) nf.checked = store.settings.notify_on_finish !== false;
     render();
     return true;
   } catch (err) {

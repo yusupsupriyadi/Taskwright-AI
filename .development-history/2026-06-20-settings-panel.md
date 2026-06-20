@@ -22,3 +22,10 @@
 
 ## Verification
 `cargo fmt` + `cargo clippy --all-targets` bersih (NO WARNINGS), `cargo check` OK, `node --check main.js` OK. Uji UI manual lewat `cargo tauri dev` belum otomatis (GUI).
+
+## Follow-up (2026-06-20) — declutter topbar
+Atas permintaan user, kontrol dipindah dari topbar ke Settings agar main page lebih bersih:
+- Tombol **⟳ Updates** dipindah ke tab **Data & About** (section "Updates", id `#check-updates` dipertahankan → wiring `setupUpdater` tetap jalan). Toggle "Check for updates on launch" juga ikut dipindah dari General ke section "Updates" di About agar terkelompok.
+- Checkbox **Notify on finish** dihapus dari topbar (sudah ada di Settings → General). Listener topbar `#notify-on-finish`, sinkronisasi `nf` di `refreshState`/`applySettings`, dan CSS `.notify-toggle` ikut dibersihkan.
+- Topbar kini: brand · workspace · Max running · (gear) Settings · + Task. `#max-concurrent` tetap di topbar (akses cepat) + di-mirror di Settings.
+- Catatan: command backend `set_notify_on_finish` kini tanpa pemanggil frontend (jalur aktif = `update_settings`); dibiarkan terdaftar (harmless), tidak ada perubahan Rust di follow-up ini.

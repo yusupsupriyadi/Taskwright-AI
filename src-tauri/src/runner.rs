@@ -33,15 +33,40 @@ pub struct Running {
     pub sched: Mutex<()>,
 }
 
-/// Resolusi executable CLI dari PATH (hormati PATHEXT, mis. temukan codex.cmd).
-fn resolve_program(provider: Provider) -> Result<PathBuf, String> {
-    let bin = match provider {
+/// Nama executable CLI default untuk sebuah provider.
+pub fn bin_name(provider: Provider) -> &'static str {
+    match provider {
         Provider::Claude => "claude",
         Provider::Codex => "codex",
         Provider::Gemini => "gemini",
         Provider::Opencode => "opencode",
         Provider::Cursor => "cursor-agent",
-    };
+    }
+}
+
+/// Key stabil provider (dipakai sebagai key map `cli_paths` & komunikasi ke UI).
+pub fn provider_key(provider: Provider) -> &'static str {
+    match provider {
+        Provider::Claude => "claude",
+        Provider::Codex => "codex",
+        Provider::Gemini => "gemini",
+        Provider::Opencode => "opencode",
+        Provider::Cursor => "cursor",
+    }
+}
+
+/// Resolusi executable CLI. Bila `override_path` diisi (path custom dari
+/// settings) ia dipakai langsung; selain itu cari di PATH (hormati PATHEXT,
+/// mis. temukan codex.cmd).
+pub fn resolve_program(provider: Provider, override_path: Option<&str>) -> Result<PathBuf, String> {
+    if let Some(p) = override_path.map(str::trim).filter(|s| !s.is_empty()) {
+        let pb = PathBuf::from(p);
+        if pb.is_file() {
+            return Ok(pb);
+        }
+        return Err(format!("configured CLI path does not exist: {p}"));
+    }
+    let bin = bin_name(provider);
     which::which(bin).map_err(|e| format!("CLI '{bin}' not found in PATH: {e}"))
 }
 
@@ -154,8 +179,8 @@ fn build_args(task: &Task, workspace: &Workspace) -> Vec<String> {
 /// Mulai eksekusi agent untuk sebuah task. Mengatur status -> Doing,
 /// menjalankan proses, dan men-stream log lewat event.
 pub fn start_task(app: &AppHandle, task_id: &str) -> Result<(), String> {
-    // Ambil salinan task + workspace.
-    let (task, workspace) = {
+    // Ambil salinan task + workspace + override path CLI (bila ada).
+    let (task, workspace, cli_override) = {
         let state = app.state::<AppState>();
         let s = state.store.lock().map_err(|_| "state locked")?;
         let task = s
@@ -170,7 +195,8 @@ pub fn start_task(app: &AppHandle, task_id: &str) -> Result<(), String> {
             .find(|w| w.id == task.workspace_id)
             .cloned()
             .ok_or("task workspace not found")?;
-        (task, workspace)
+        let cli_override = s.settings.cli_paths.get(provider_key(task.provider)).cloned();
+        (task, workspace, cli_override)
     };
 
     if !PathBuf::from(&workspace.path).is_dir() {
@@ -189,7 +215,7 @@ pub fn start_task(app: &AppHandle, task_id: &str) -> Result<(), String> {
         }
     }
 
-    let program = resolve_program(task.provider)?;
+    let program = resolve_program(task.provider, cli_override.as_deref())?;
     let args = build_args(&task, &workspace);
 
     let mut cmd = Command::new(&program);
@@ -330,7 +356,9 @@ pub fn schedule(app: &AppHandle) {
             break;
         }
 
-        // Task antrian berikutnya: FIFO global (paling lama menunggu lebih dulu).
+        // Task antrian berikutnya: mengikuti urutan visual papan (field `order`
+        // menaik), sehingga kartu yang ditaruh lebih atas di Todo dijalankan lebih
+        // dulu. created_at sebagai pemecah seri bila order sama.
         let next = {
             let state = app.state::<AppState>();
             let s = match state.store.lock() {
@@ -341,8 +369,9 @@ pub fn schedule(app: &AppHandle) {
                 .iter()
                 .filter(|t| t.status == Status::Todo)
                 .min_by(|a, b| {
-                    a.updated_at
-                        .cmp(&b.updated_at)
+                    a.order
+                        .partial_cmp(&b.order)
+                        .unwrap_or(std::cmp::Ordering::Equal)
                         .then(a.created_at.cmp(&b.created_at))
                 })
                 .map(|t| t.id.clone())

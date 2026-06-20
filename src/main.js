@@ -107,14 +107,12 @@ function maxConcurrent() {
   return Math.max(1, store.settings?.max_concurrent || 1);
 }
 
-// Posisi task dalam antrian global (FIFO by updated_at). 0 = tidak mengantre.
+// Posisi task dalam antrian global. Mengikuti urutan visual (field order) agar
+// badge #n cocok dengan urutan eksekusi penjadwal. 0 = tidak mengantre.
 function queuePosition(taskId) {
   const queued = store.tasks
     .filter((t) => t.status === "todo")
-    .sort(
-      (a, b) =>
-        (a.updated_at || 0) - (b.updated_at || 0) || (a.created_at || 0) - (b.created_at || 0)
-    );
+    .sort((a, b) => (a.order || 0) - (b.order || 0) || (a.created_at || 0) - (b.created_at || 0));
   const idx = queued.findIndex((t) => t.id === taskId);
   return idx === -1 ? 0 : idx + 1;
 }
@@ -239,15 +237,23 @@ function setupDnd() {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     highlight(col);
+    // Indikator garis menunjukkan posisi sisip persis dari posisi kursor, sehingga
+    // drop bisa menaruh kartu di antara dua kartu (reorder atas/bawah).
+    showDropIndicator(col, e.clientY);
   });
 
   board.addEventListener("drop", async (e) => {
     const col = e.target.closest(".column");
-    clearHighlight();
-    if (!col) return;
+    if (!col || col.dataset.status === "doing") {
+      clearHighlight();
+      return;
+    }
     e.preventDefault();
     const id = e.dataTransfer.getData("text/plain");
-    await moveTask(id, col.dataset.status);
+    // Hitung order tujuan dari posisi kursor SEBELUM indikator dibersihkan.
+    const order = dropOrder(col, e.clientY, id);
+    clearHighlight();
+    await moveTask(id, col.dataset.status, order);
   });
 }
 
@@ -256,11 +262,57 @@ function highlight(col) {
 }
 function clearHighlight() {
   document.querySelectorAll(".column").forEach((c) => c.classList.remove("drag-over"));
+  removeDropIndicators();
 }
 
-async function moveTask(id, status) {
+// Sisipkan/posisikan indikator garis di .column-body sesuai posisi kursor.
+function showDropIndicator(col, clientY) {
+  removeDropIndicators();
+  const body = col.querySelector(".column-body");
+  if (!body) return;
+  const ind = document.createElement("div");
+  ind.className = "drop-indicator";
+  const before = cardBeforeY(body, clientY);
+  if (before) body.insertBefore(ind, before);
+  else body.appendChild(ind);
+}
+
+function removeDropIndicators() {
+  document.querySelectorAll(".drop-indicator").forEach((el) => el.remove());
+}
+
+// Kartu pertama (selain yang sedang di-drag) yang titik-tengah vertikalnya berada
+// di bawah kursor; null berarti kursor di bawah semua kartu (sisip di akhir).
+function cardBeforeY(body, clientY) {
+  const cards = [...body.querySelectorAll(".card:not(.dragging)")];
+  return (
+    cards.find((c) => {
+      const r = c.getBoundingClientRect();
+      return clientY < r.top + r.height / 2;
+    }) || null
+  );
+}
+
+// Nilai order baru untuk kartu yang di-drop, dihitung dari tetangga di titik sisip.
+// order bertipe pecahan (f64 di backend) sehingga bisa disisipkan di antara dua nilai.
+function dropOrder(col, clientY, draggedId) {
+  const body = col.querySelector(".column-body");
+  if (!body) return nextOrder(col.dataset.status);
+  const before = cardBeforeY(body, clientY);
+  const items = tasksIn(col.dataset.status).filter((t) => t.id !== draggedId);
+  let idx = before ? items.findIndex((t) => t.id === before.dataset.id) : items.length;
+  if (idx === -1) idx = items.length;
+  const prev = items[idx - 1];
+  const next = items[idx];
+  if (!prev && !next) return 1; // kolom kosong
+  if (!prev) return (next.order || 0) - 1; // sisip di awal
+  if (!next) return (prev.order || 0) + 1; // sisip di akhir
+  return ((prev.order || 0) + (next.order || 0)) / 2; // sisip di tengah
+}
+
+async function moveTask(id, status, order) {
   const task = store.tasks.find((t) => t.id === id);
-  if (!task || task.status === status) return;
+  if (!task) return;
   if (status === "doing") {
     toast("Doing is system-managed — tasks enter it automatically when the agent runs.", true);
     return;
@@ -269,11 +321,13 @@ async function moveTask(id, status) {
     toast("Task is running — stop it before moving.", true);
     return;
   }
+  // Reorder di kolom yang sama ke posisi yang sama → tidak perlu round-trip.
+  if (task.status === status && (order == null || order === task.order)) return;
   try {
     const updated = await invoke("set_task_status", {
       taskId: id,
       status,
-      order: nextOrder(status),
+      order: order == null ? nextOrder(status) : order,
     });
     Object.assign(task, updated);
     render();

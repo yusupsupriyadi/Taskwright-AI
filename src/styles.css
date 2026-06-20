@@ -256,6 +256,15 @@ textarea {
   border-color: var(--accent);
   background: #18202c;
 }
+/* Garis sisip saat drag: menandai posisi persis kartu akan di-drop (reorder). */
+.drop-indicator {
+  height: 2px;
+  margin: -4px 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  pointer-events: none;
+}
 .column-head {
   display: flex;
   align-items: center;
